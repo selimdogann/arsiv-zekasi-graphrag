@@ -1,0 +1,2 @@
+# Bu dosya projenin çalışması için gereken Python kütüphanelerini listeler.
+# Henüz kütüphane eklenmedi — mimari ilerledikçe buraya eklenecek.
