@@ -1,0 +1,13 @@
+# macOS sistem dosyaları
+.DS_Store
+
+# Python sanal ortamı
+.venv/
+
+# Python derlenmiş bayt kodu
+__pycache__/
+*.pyc
+
+# Editör ayar klasörleri
+.vscode/
+.idea/
