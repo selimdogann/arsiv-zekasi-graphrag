@@ -1,10 +1,17 @@
-# LaciTek GraphRAG — Enterprise Multimodal Archival Intelligence System
+# Enterprise Multimodal GraphRAG Archival Intelligence Platform
 
 Kurumsal arşivler için, yapay zekâyı deterministik algoritmalarla (graf arama,
-Dijkstra, durum makinesi) dizginleyen hibrit bir GraphRAG mimarisi.
+Dijkstra, durum makinesi) dizginleyen, sektörden bağımsız (domain-agnostic)
+hibrit bir GraphRAG mimarisi.
 
-Yerel LLM (Microsoft Foundry Local) ile çalışır, Türkçe kurumsal/hukuki
-varlıkları (TCKN, VKN, IBAN, mevzuat) tanır ve KVKK uyumlu PII maskeleme içerir.
+Yerel LLM ile çalışır; Ports & Adapters (Clean Architecture) ile kurulmuştur —
+çekirdek mimari herhangi bir kurumsal arşiv sistemine uyarlanabilir.
+
+## Türkçe Kurumsal Vertical
+
+Platformun derinlemesine bir özelleşme örneği olarak, Türk kurumsal/hukuki
+belgelere özgü bir katman geliştiriliyor: Türkçe varlık çıkarımı (TCKN, VKN,
+IBAN, mevzuat referansı) ve KVKK (6698 sayılı Kanun) uyumlu PII maskeleme.
 
 ## Durum
 
