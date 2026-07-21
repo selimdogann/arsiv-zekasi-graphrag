@@ -21,3 +21,7 @@ class InvalidStateTransitionError(GraphRAGError):
         super().__init__(
             f"Geçersiz durum geçişi: '{current}' -> '{attempted}'."
         )
+
+
+class IngestionError(GraphRAGError):
+    """Doküman alma/okuma sürecinde oluşan hata (örn. dosya bulunamadı)."""
