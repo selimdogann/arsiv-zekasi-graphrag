@@ -44,6 +44,9 @@ class Document:
     )
 
     document_id: str = field(default_factory=lambda: str(uuid.uuid4()))
+    uri: str = ""
+    raw_text: str = ""
+
     title: str = ""
     state: DocumentState = DocumentState.RECEIVED
     history: List[Tuple[DocumentState, str]] = field(default_factory=list)
