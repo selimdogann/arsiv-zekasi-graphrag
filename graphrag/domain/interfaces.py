@@ -9,10 +9,10 @@ asla bilmez — bu, düşük bağımlılığın (low coupling) temelidir.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import List
+from typing import List,Tuple
 
 
-from graphrag.domain.entities import Document, GraphEdge, GraphNode
+from graphrag.domain.entities import Document, GraphEdge, GraphNode, Chunk
 
 
 class IDocumentLoader(ABC):
@@ -37,3 +37,17 @@ class IGraphStore(ABC):
     @abstractmethod
     def neighbors(self, node_id: str) -> List[GraphEdge]:
         """Verilen düğümden ÇIKAN tüm kenarları döndürür (komşuluk listesi)."""
+
+
+
+class IVectorStore(ABC):
+    """Vektör benzerliği araması sözleşmesi."""
+
+    @abstractmethod
+    def upsert(self, chunks: List[Chunk]) -> None:
+        """Chunk'ları depoya ekler/günceller."""
+
+    @abstractmethod
+    def search(self, query_embedding: Tuple[float, ...], top_k: int
+               ) -> List["tuple[Chunk, float]"]:
+        """En benzer top_k chunk'ı, (chunk, benzerlik_skoru) çiftleri olarak döndürür."""
