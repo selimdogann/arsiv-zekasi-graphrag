@@ -12,6 +12,7 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
+import math
 from typing import Dict, List, Set, Tuple
 
 from graphrag.domain.exceptions import InvalidStateTransitionError
@@ -60,3 +61,43 @@ class Document:
             raise InvalidStateTransitionError(self.state.value, target.value)
         self.history.append((self.state, note))
         self.state = target
+
+
+
+
+@dataclass(frozen=True)
+class GraphNode:
+    """Bilgi çizgesindeki bir düğüm (örn. bir firma, bir proje)."""
+
+    node_id: str
+    label: str
+
+
+@dataclass(frozen=True)
+class GraphEdge:
+    """
+    Bilgi çizgesindeki yönlü bir kenar.
+
+    `weight = -log(confidence)` — bkz. proje notları: Dijkstra bu ağırlığı
+    minimize ettiğinde, aslında güven skorlarının ÇARPIMINI maksimize eder.
+    """
+
+    source_id: str
+    target_id: str
+    weight: float
+    confidence: float
+
+
+@dataclass(frozen=True)
+class GraphPath:
+    """Arama sonucu bulunan bir yol."""
+
+    nodes: Tuple[str, ...]
+    total_cost: float
+
+    @property
+    def probability(self) -> float:
+        """Toplam maliyetten geri türetilen birleşik güven skoru."""
+        return math.exp(-self.total_cost)
+
+
