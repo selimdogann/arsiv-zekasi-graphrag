@@ -101,3 +101,12 @@ class GraphPath:
         return math.exp(-self.total_cost)
 
 
+
+@dataclass(frozen=True)
+class Chunk:
+    """Bir dokümanın küçük bir parçası, embedding'iyle (vektörüyle) birlikte."""
+
+    chunk_id: str
+    text: str
+    embedding: Tuple[float, ...]
+
