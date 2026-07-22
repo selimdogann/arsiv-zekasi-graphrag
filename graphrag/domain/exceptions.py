@@ -25,3 +25,7 @@ class InvalidStateTransitionError(GraphRAGError):
 
 class IngestionError(GraphRAGError):
     """Doküman alma/okuma sürecinde oluşan hata (örn. dosya bulunamadı)."""
+
+
+class PathNotFoundError(GraphRAGError):
+    """İki düğüm arasında (verilen kısıtlar içinde) yol bulunamadı."""
