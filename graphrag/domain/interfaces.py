@@ -59,3 +59,7 @@ class ILanguageModel(ABC):
     @abstractmethod
     def complete(self, prompt: str) -> str:
         """Verilen prompt'un devamını (LLM'in ürettiği metni) döndürür."""
+    
+    @abstractmethod
+    def embed(self, text: str) -> "tuple[float, ...]":
+        """Metni bir embedding vektörüne (sayı dizisine) çevirir."""
