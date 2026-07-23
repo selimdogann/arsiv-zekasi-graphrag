@@ -51,3 +51,11 @@ class IVectorStore(ABC):
     def search(self, query_embedding: Tuple[float, ...], top_k: int
                ) -> List["tuple[Chunk, float]"]:
         """En benzer top_k chunk'ı, (chunk, benzerlik_skoru) çiftleri olarak döndürür."""
+
+
+class ILanguageModel(ABC):
+    """LLM (dil modeli) çıkarım sözleşmesi."""
+
+    @abstractmethod
+    def complete(self, prompt: str) -> str:
+        """Verilen prompt'un devamını (LLM'in ürettiği metni) döndürür."""
