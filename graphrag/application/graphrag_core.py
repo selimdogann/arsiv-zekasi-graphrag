@@ -6,25 +6,32 @@ PORT'lara bağımlıdır (Dependency Injection).
 """
 from __future__ import annotations
 
-from graphrag.domain.entities import Chunk, Document, DocumentState
+import math
+
+from graphrag.domain.entities import Chunk, Document, DocumentState, GraphEdge, GraphNode
 from graphrag.domain.exceptions import PathNotFoundError
 from graphrag.domain.interfaces import (
     IDocumentLoader,
+    IEntityExtractor,
     IGraphStore,
     ILanguageModel,
     IVectorStore,
 )
 from graphrag.infrastructure.graph.graph_search_engine import GraphSearchEngine
 
+_CO_OCCURRENCE_CONFIDENCE = 0.5
+
 
 class GraphRAGCore:
     def __init__(self, loader: IDocumentLoader, llm: ILanguageModel,
-                 vectors: IVectorStore, graph: IGraphStore) -> None:
+                 vectors: IVectorStore, graph: IGraphStore,
+                 extractor: IEntityExtractor) -> None:
         self._loader = loader
         self._llm = llm
         self._vectors = vectors
         self._graph = graph
         self._search = GraphSearchEngine(graph)
+        self._extractor = extractor
 
     def ingest(self, uri: str) -> Document:
         document = self._loader.load(uri)
@@ -35,7 +42,22 @@ class GraphRAGCore:
                       embedding=embedding)
         self._vectors.upsert([chunk])
 
-        document.transition_to(DocumentState.PARSED, note="metin hazır ve indekslendi")
+        entity_names = self._extractor.extract(document.raw_text)
+        for name in entity_names:
+            self._graph.upsert_node(GraphNode(node_id=name, label=name))
+
+        weight = -math.log(_CO_OCCURRENCE_CONFIDENCE)
+        for i in range(len(entity_names)):
+            for j in range(i + 1, len(entity_names)):
+                a, b = entity_names[i], entity_names[j]
+                self._graph.upsert_edge(
+                    GraphEdge(a, b, weight, _CO_OCCURRENCE_CONFIDENCE))
+                self._graph.upsert_edge(
+                    GraphEdge(b, a, weight, _CO_OCCURRENCE_CONFIDENCE))
+
+        document.transition_to(
+            DocumentState.PARSED,
+            note=f"metin hazır, {len(entity_names)} varlık çıkarıldı")
         return document
 
     def answer(self, question: str) -> str:
@@ -49,7 +71,6 @@ class GraphRAGCore:
         return self._llm.complete(prompt)
 
     def find_connection(self, source_id: str, target_id: str) -> str:
-        """İki varlık arasında, graf üzerinden en güvenilir bağlantı zincirini bulur."""
         try:
             path = self._search.shortest_path(source_id, target_id)
         except PathNotFoundError:
