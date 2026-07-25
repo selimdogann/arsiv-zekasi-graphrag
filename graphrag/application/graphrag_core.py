@@ -7,15 +7,24 @@ PORT'lara bağımlıdır (Dependency Injection).
 from __future__ import annotations
 
 from graphrag.domain.entities import Chunk, Document, DocumentState
-from graphrag.domain.interfaces import IDocumentLoader, ILanguageModel, IVectorStore
+from graphrag.domain.exceptions import PathNotFoundError
+from graphrag.domain.interfaces import (
+    IDocumentLoader,
+    IGraphStore,
+    ILanguageModel,
+    IVectorStore,
+)
+from graphrag.infrastructure.graph.graph_search_engine import GraphSearchEngine
 
 
 class GraphRAGCore:
     def __init__(self, loader: IDocumentLoader, llm: ILanguageModel,
-                 vectors: IVectorStore) -> None:
+                 vectors: IVectorStore, graph: IGraphStore) -> None:
         self._loader = loader
         self._llm = llm
         self._vectors = vectors
+        self._graph = graph
+        self._search = GraphSearchEngine(graph)
 
     def ingest(self, uri: str) -> Document:
         document = self._loader.load(uri)
@@ -38,3 +47,13 @@ class GraphRAGCore:
         best_chunk, score = results[0]
         prompt = f"Bağlam: {best_chunk.text}\n\nSoru: {question}\n\nCevap:"
         return self._llm.complete(prompt)
+
+    def find_connection(self, source_id: str, target_id: str) -> str:
+        """İki varlık arasında, graf üzerinden en güvenilir bağlantı zincirini bulur."""
+        try:
+            path = self._search.shortest_path(source_id, target_id)
+        except PathNotFoundError:
+            return "Bu iki varlık arasında bilinen bir bağlantı bulunamadı."
+
+        chain = " -> ".join(path.nodes)
+        return f"Bağlantı bulundu: {chain}  (güven: {path.probability:.2f})"
