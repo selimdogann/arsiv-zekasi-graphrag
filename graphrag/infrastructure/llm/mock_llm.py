@@ -5,7 +5,6 @@ Gerçek bir yerel LLM sunucusu kurulu olmadan `ILanguageModel` sözleşmesini
 test edebilmek için yazılmıştır.
 """
 from __future__ import annotations
-
 import hashlib
 
 from graphrag.domain.interfaces import ILanguageModel

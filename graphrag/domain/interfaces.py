@@ -63,3 +63,11 @@ class ILanguageModel(ABC):
     @abstractmethod
     def embed(self, text: str) -> "tuple[float, ...]":
         """Metni bir embedding vektörüne (sayı dizisine) çevirir."""
+
+
+class IEntityExtractor(ABC):
+    """Metinden varlık (özel isim) adayları çıkaran sözleşme."""
+
+    @abstractmethod
+    def extract(self, text: str) -> List[str]:
+        """Metindeki varlık adı adaylarını döndürür."""
