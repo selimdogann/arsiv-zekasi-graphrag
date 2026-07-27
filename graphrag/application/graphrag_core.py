@@ -67,7 +67,15 @@ class GraphRAGCore:
             return "Arşivde bu soruyla ilgili bir şey bulamadım."
 
         best_chunk, score = results[0]
-        prompt = f"Bağlam: {best_chunk.text}\n\nSoru: {question}\n\nCevap:"
+        prompt = (
+    "Aşağıdaki BAĞLAM'a dayanarak soruyu yanıtla. SADECE bağlamda verilen "
+    "bilgiyi kullan; bağlamda olmayan hiçbir şeyi UYDURMA. Bağlamda cevap "
+    "yoksa 'Bu bilgi arşivde bulunamadı' de.\n\n"
+    f"BAĞLAM: {best_chunk.text}\n\n"
+    f"SORU: {question}\n\n"
+    "CEVAP:"
+)
+
         return self._llm.complete(prompt)
 
     def find_connection(self, source_id: str, target_id: str) -> str:
