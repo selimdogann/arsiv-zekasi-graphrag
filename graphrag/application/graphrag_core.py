@@ -16,6 +16,7 @@ from graphrag.domain.interfaces import (
     IEntityExtractor,
     IGraphStore,
     ILanguageModel,
+    IPrivacyFilter,
     IVectorStore,
 )
 from graphrag.infrastructure.graph.graph_search_engine import GraphSearchEngine
@@ -26,17 +27,22 @@ _CO_OCCURRENCE_CONFIDENCE = 0.5
 class GraphRAGCore:
     def __init__(self, loader: IDocumentLoader, llm: ILanguageModel,
                  vectors: IVectorStore, graph: IGraphStore,
-                 extractor: IEntityExtractor) -> None:
+                 extractor: IEntityExtractor, privacy: IPrivacyFilter) -> None:
         self._loader = loader
         self._llm = llm
         self._vectors = vectors
         self._graph = graph
         self._search = GraphSearchEngine(graph)
         self._extractor = extractor
+        self._privacy = privacy
 
     def ingest(self, uri: str) -> Document:
         document = self._loader.load(uri)
         document.transition_to(DocumentState.PARSING, note="ingest başladı")
+
+        # KVKK: kişisel veriler, embed/graf-çıkarım öncesi maskelenir — böylece
+        # ham kişisel veri hiçbir zaman vektör deposuna ya da grafa girmez.
+        document.raw_text = self._privacy.redact(document.raw_text)
 
         embedding = self._llm.embed(document.raw_text)
         chunk = Chunk(chunk_id=document.document_id, text=document.raw_text,
