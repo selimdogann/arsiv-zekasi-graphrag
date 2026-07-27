@@ -37,6 +37,10 @@ class IGraphStore(ABC):
     @abstractmethod
     def neighbors(self, node_id: str) -> List[GraphEdge]:
         """Verilen düğümden ÇIKAN tüm kenarları döndürür (komşuluk listesi)."""
+    
+    @abstractmethod
+    def get_node(self, node_id: str) -> GraphNode:
+        """Verilen id'ye sahip düğümü döndürür."""
 
 
 

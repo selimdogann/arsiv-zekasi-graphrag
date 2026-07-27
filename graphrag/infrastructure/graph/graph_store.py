@@ -28,3 +28,6 @@ class InMemoryGraphStore(IGraphStore):
 
     def neighbors(self, node_id: str) -> List[GraphEdge]:
         return list(self._adjacency.get(node_id, []))
+    
+    def get_node(self, node_id: str) -> GraphNode:
+        return self._nodes[node_id]
