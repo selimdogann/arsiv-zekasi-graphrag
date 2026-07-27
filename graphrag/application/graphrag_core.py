@@ -5,6 +5,7 @@ Bu sınıf HİÇBİR somut teknolojiyi bilmez — sadece `domain/interfaces.py`'
 PORT'lara bağımlıdır (Dependency Injection).
 """
 from __future__ import annotations
+from graphrag.domain.text_tr import canonical_key
 
 import math
 
@@ -43,13 +44,18 @@ class GraphRAGCore:
         self._vectors.upsert([chunk])
 
         entity_names = self._extractor.extract(document.raw_text)
+        node_ids = []
         for name in entity_names:
-            self._graph.upsert_node(GraphNode(node_id=name, label=name))
+            node_id = canonical_key(name)
+            self._graph.upsert_node(GraphNode(node_id=node_id, label=name))
+            node_ids.append(node_id)
 
         weight = -math.log(_CO_OCCURRENCE_CONFIDENCE)
-        for i in range(len(entity_names)):
-            for j in range(i + 1, len(entity_names)):
-                a, b = entity_names[i], entity_names[j]
+        for i in range(len(node_ids)):
+            for j in range(i + 1, len(node_ids)):
+                a, b = node_ids[i], node_ids[j]
+                if a == b:
+                    continue  # aynı varlığın farklı yazımı, zaten aynı düğüm
                 self._graph.upsert_edge(
                     GraphEdge(a, b, weight, _CO_OCCURRENCE_CONFIDENCE))
                 self._graph.upsert_edge(
@@ -79,10 +85,13 @@ class GraphRAGCore:
         return self._llm.complete(prompt)
 
     def find_connection(self, source_id: str, target_id: str) -> str:
+        source_key = canonical_key(source_id)
+        target_key = canonical_key(target_id)
         try:
-            path = self._search.shortest_path(source_id, target_id)
+            path = self._search.shortest_path(source_key, target_key)
         except PathNotFoundError:
             return "Bu iki varlık arasında bilinen bir bağlantı bulunamadı."
 
-        chain = " -> ".join(path.nodes)
+        labels = [self._graph.get_node(nid).label for nid in path.nodes]
+        chain = " -> ".join(labels)
         return f"Bağlantı bulundu: {chain}  (güven: {path.probability:.2f})"
