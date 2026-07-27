@@ -13,6 +13,7 @@ from typing import List,Tuple
 
 
 from graphrag.domain.entities import Document, GraphEdge, GraphNode, Chunk
+from graphrag.domain.privacy import AuditEvent
 
 
 class IDocumentLoader(ABC):
@@ -75,3 +76,19 @@ class IEntityExtractor(ABC):
     @abstractmethod
     def extract(self, text: str) -> List[str]:
         """Metindeki varlık adı adaylarını döndürür."""
+
+
+class IAuditLog(ABC):
+    """KVKK denetim kaydı sözleşmesi (append-only)."""
+
+    @abstractmethod
+    def record(self, event: AuditEvent) -> None:
+        """Bir denetim olayını kalıcı olarak kaydeder."""
+
+
+class IPrivacyFilter(ABC):
+    """KVKK kişisel veri (PII) maskeleme sözleşmesi."""
+
+    @abstractmethod
+    def redact(self, text: str) -> str:
+        """Metindeki kişisel verileri kararlı takma adlarla değiştirir."""
