@@ -92,3 +92,15 @@ class IPrivacyFilter(ABC):
     @abstractmethod
     def redact(self, text: str) -> str:
         """Metindeki kişisel verileri kararlı takma adlarla değiştirir."""
+
+
+class ICache(ABC):
+    """Basit anahtar-değer önbellek sözleşmesi (memoization için)."""
+
+    @abstractmethod
+    def get(self, key: str):
+        """Anahtara karşılık gelen değeri döndürür; önbellekte yoksa None."""
+
+    @abstractmethod
+    def set(self, key: str, value) -> None:
+        """Anahtar-değer çiftini önbelleğe kaydeder."""
