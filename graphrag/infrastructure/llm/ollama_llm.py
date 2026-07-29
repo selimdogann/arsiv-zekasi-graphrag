@@ -7,7 +7,6 @@ talimatlara (özellikle "sadece bağlamı kullan, uydurma") uymasını
 """
 from __future__ import annotations
 
-import hashlib
 
 import requests
 
@@ -15,7 +14,8 @@ from graphrag.domain.interfaces import ILanguageModel
 
 _BASE_URL = "http://localhost:11434"
 _MODEL = "llama3.2"
-_DIM = 16
+_EMBED_MODEL = "bge-m3"
+
 
 _SYSTEM_PROMPT = (
     "Sen bir kurumsal arşiv asistanısın. SADECE sana verilen BAĞLAM'a "
@@ -42,8 +42,11 @@ class OllamaLanguageModel(ILanguageModel):
         return data["message"]["content"]
 
     def embed(self, text: str):
-        vec = [0.0] * _DIM
-        for word in text.lower().split():
-            h = int(hashlib.md5(word.encode()).hexdigest(), 16)
-            vec[h % _DIM] += 1.0
-        return tuple(vec)
+        response = requests.post(
+            f"{_BASE_URL}/api/embeddings",
+            json={"model": _EMBED_MODEL, "prompt": text},
+            timeout=60,
+        )
+        data = response.json()
+        return tuple(data["embedding"])
+
