@@ -2,3 +2,6 @@ requests
 pytest
 pypdf
 python-docx
+sqlalchemy
+psycopg[binary]
+pgvector
