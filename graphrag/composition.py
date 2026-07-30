@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from graphrag.application.graphrag_core import GraphRAGCore
 from graphrag.infrastructure.cache.memory_cache import InMemoryCache
+from graphrag.infrastructure.chunking.text_chunker import SlidingWindowChunker
 from graphrag.infrastructure.graph.graph_store import InMemoryGraphStore
 from graphrag.infrastructure.ingestion.auto_loader import AutoDocumentLoader
 from graphrag.infrastructure.llm.cached_llm import CachedLanguageModel
@@ -29,4 +30,5 @@ def build_core() -> GraphRAGCore:
         graph=InMemoryGraphStore(),
         extractor=SimpleEntityExtractor(),
         privacy=KvkkPiiRedactor(audit_log),
+        chunker=SlidingWindowChunker(),
     )
