@@ -24,6 +24,14 @@ class IDocumentLoader(ABC):
         """Verilen kaynaktan bir Document oluşturur."""
 
 
+class IChunker(ABC):
+    """Uzun bir metni, ayrı ayrı embed'lenecek küçük parçalara bölen sözleşme."""
+
+    @abstractmethod
+    def chunk(self, text: str) -> List[str]:
+        """Metni parça (chunk) listesine böler. Boş metin için boş liste döner."""
+
+
 class IGraphStore(ABC):
     """Bilgi çizgesi depolama sözleşmesi."""
 

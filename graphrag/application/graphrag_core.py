@@ -12,6 +12,7 @@ import math
 from graphrag.domain.entities import Chunk, Document, DocumentState, GraphEdge, GraphNode
 from graphrag.domain.exceptions import PathNotFoundError
 from graphrag.domain.interfaces import (
+    IChunker,
     IDocumentLoader,
     IEntityExtractor,
     IGraphStore,
@@ -27,7 +28,8 @@ _CO_OCCURRENCE_CONFIDENCE = 0.5
 class GraphRAGCore:
     def __init__(self, loader: IDocumentLoader, llm: ILanguageModel,
                  vectors: IVectorStore, graph: IGraphStore,
-                 extractor: IEntityExtractor, privacy: IPrivacyFilter) -> None:
+                 extractor: IEntityExtractor, privacy: IPrivacyFilter,
+                 chunker: IChunker) -> None:
         self._loader = loader
         self._llm = llm
         self._vectors = vectors
@@ -35,6 +37,7 @@ class GraphRAGCore:
         self._search = GraphSearchEngine(graph)
         self._extractor = extractor
         self._privacy = privacy
+        self._chunker = chunker
 
     def ingest(self, uri: str) -> Document:
         document = self._loader.load(uri)
@@ -44,10 +47,15 @@ class GraphRAGCore:
         # ham kişisel veri hiçbir zaman vektör deposuna ya da grafa girmez.
         document.raw_text = self._privacy.redact(document.raw_text)
 
-        embedding = self._llm.embed(document.raw_text)
-        chunk = Chunk(chunk_id=document.document_id, text=document.raw_text,
-                      embedding=embedding)
-        self._vectors.upsert([chunk])
+        # Belgeyi küçük parçalara böl ve HER parçayı ayrı ayrı embed'le.
+        # Böylece arama, koca belgeyi değil, sorunun geçtiği asıl parçayı bulur.
+        pieces = self._chunker.chunk(document.raw_text)
+        chunks = [
+            Chunk(chunk_id=f"{document.document_id}#{i}", text=piece,
+                  embedding=self._llm.embed(piece))
+            for i, piece in enumerate(pieces)
+        ]
+        self._vectors.upsert(chunks)
 
         entity_names = self._extractor.extract(document.raw_text)
         node_ids = []
@@ -74,16 +82,17 @@ class GraphRAGCore:
 
     def answer(self, question: str) -> str:
         question_embedding = self._llm.embed(question)
-        results = self._vectors.search(question_embedding, top_k=1)
+        results = self._vectors.search(question_embedding, top_k=3)
         if not results:
             return "Arşivde bu soruyla ilgili bir şey bulamadım."
 
-        best_chunk, score = results[0]
+        # En benzer birkaç parçayı birleştirip tek bir BAĞLAM oluştur.
+        context = "\n\n".join(chunk.text for chunk, score in results)
         prompt = (
     "Aşağıdaki BAĞLAM'a dayanarak soruyu yanıtla. SADECE bağlamda verilen "
     "bilgiyi kullan; bağlamda olmayan hiçbir şeyi UYDURMA. Bağlamda cevap "
     "yoksa 'Bu bilgi arşivde bulunamadı' de.\n\n"
-    f"BAĞLAM: {best_chunk.text}\n\n"
+    f"BAĞLAM: {context}\n\n"
     f"SORU: {question}\n\n"
     "CEVAP:"
 )
