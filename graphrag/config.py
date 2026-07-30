@@ -1,0 +1,29 @@
+"""
+Uygulama ayarları — ortam değişkenlerinden (environment variables) okunur.
+
+`DATABASE_URL` tanımlıysa kalıcı PostgreSQL adaptörleri, tanımlı değilse
+bellek-içi (InMemory) adaptörler kullanılır. Böylece demo ve testler bir
+veritabanı gerektirmeden çalışmaya devam eder; üretimde ise tek bir ortam
+değişkeni kalıcılığı açar.
+"""
+from __future__ import annotations
+
+import os
+from dataclasses import dataclass
+
+# bge-m3 embedding boyutu. pgvector sütunu SABİT boyut ister; embedding modeli
+# değişirse burası da güncellenmeli (ve tablo yeniden oluşturulmalı).
+EMBED_DIM = int(os.getenv("EMBED_DIM", "1024"))
+
+
+@dataclass(frozen=True)
+class Settings:
+    database_url: str | None
+    embed_dim: int
+
+
+def get_settings() -> Settings:
+    return Settings(
+        database_url=os.getenv("DATABASE_URL"),
+        embed_dim=EMBED_DIM,
+    )
