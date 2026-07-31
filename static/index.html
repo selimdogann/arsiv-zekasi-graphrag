@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Arşiv Zekâsı</title>
+  <style>
+    /* ---- CSS: sayfanın GÖRÜNÜMÜ (renk, boşluk, yazı) ---- */
+    :root {
+      --bg: #f4f5f7;
+      --card: #ffffff;
+      --ink: #1f2430;
+      --muted: #6b7280;
+      --line: #e3e6ea;
+      --brand: #2f6fed;
+      --brand-ink: #ffffff;
+      --ok: #0f9d58;
+      --result-bg: #f7f9fc;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #12151b; --card: #1b1f27; --ink: #e6e8ec; --muted: #9aa2ad;
+        --line: #2a2f39; --brand: #4b86f0; --result-bg: #12161d;
+      }
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; background: var(--bg); color: var(--ink);
+      font-family: -apple-system, "Segoe UI", Roboto, sans-serif; line-height: 1.5;
+    }
+    header {
+      padding: 28px 20px; text-align: center; border-bottom: 1px solid var(--line);
+      background: var(--card);
+    }
+    header h1 { margin: 0; font-size: 1.5rem; }
+    header p { margin: 6px 0 0; color: var(--muted); font-size: .95rem; }
+    main {
+      max-width: 780px; margin: 0 auto; padding: 22px 16px;
+      display: grid; gap: 18px;
+    }
+    .card {
+      background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+      padding: 18px 18px 20px;
+    }
+    .card h2 { margin: 0 0 4px; font-size: 1.05rem; }
+    .card .hint { margin: 0 0 14px; color: var(--muted); font-size: .85rem; }
+    label { display: block; font-size: .8rem; color: var(--muted); margin: 10px 0 4px; }
+    input, textarea {
+      width: 100%; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px;
+      background: var(--bg); color: var(--ink); font: inherit;
+    }
+    textarea { min-height: 66px; resize: vertical; }
+    .row { display: flex; gap: 10px; flex-wrap: wrap; }
+    .row > div { flex: 1 1 200px; }
+    button {
+      margin-top: 14px; padding: 10px 18px; border: 0; border-radius: 8px;
+      background: var(--brand); color: var(--brand-ink); font: inherit; font-weight: 600;
+      cursor: pointer;
+    }
+    button:disabled { opacity: .6; cursor: default; }
+    .result {
+      margin-top: 14px; padding: 12px 14px; border-radius: 8px; background: var(--result-bg);
+      border: 1px solid var(--line); font-size: .92rem; white-space: pre-wrap;
+      min-height: 20px; color: var(--ink);
+    }
+    .result:empty { display: none; }
+    .result.ok { border-color: var(--ok); }
+    footer { text-align: center; color: var(--muted); font-size: .8rem; padding: 20px; }
+  </style>
+</head>
+<body>
+  <!-- ---- HTML: sayfanın İSKELETİ (ne nerede duruyor) ---- -->
+  <header>
+    <h1>Arşiv Zekâsı</h1>
+    <p>Belge yükle · Soru sor · Varlıklar arası bağlantı bul</p>
+  </header>
+
+  <main>
+    <!-- Panel 1: Belge Yükle -->
+    <section class="card">
+      <h2>1 · Belge Yükle</h2>
+      <p class="hint">Sunucudaki bir belge yolunu ingest et (örn. examples/documents/sozlesme_a.txt).</p>
+      <label for="uri">Belge yolu</label>
+      <input id="uri" placeholder="examples/documents/sozlesme_a.txt" />
+      <button id="ingestBtn">Yükle</button>
+      <div class="result" id="ingestResult"></div>
+    </section>
+
+    <!-- Panel 2: Soru Sor -->
+    <section class="card">
+      <h2>2 · Soru Sor</h2>
+      <p class="hint">Yüklenen belgelere dayanarak cevap üretilir (RAG).</p>
+      <label for="question">Soru</label>
+      <textarea id="question" placeholder="Proje Zeus kimin projesi?"></textarea>
+      <button id="askBtn">Sor</button>
+      <div class="result" id="askResult"></div>
+    </section>
+
+    <!-- Panel 3: Bağlantı Bul -->
+    <section class="card">
+      <h2>3 · Bağlantı Bul</h2>
+      <p class="hint">İki varlık arasındaki en güvenilir zinciri graf üzerinde bulur.</p>
+      <div class="row">
+        <div>
+          <label for="source">Kaynak varlık</label>
+          <input id="source" placeholder="Acme Holding" />
+        </div>
+        <div>
+          <label for="target">Hedef varlık</label>
+          <input id="target" placeholder="Gamma Danışmanlık" />
+        </div>
+      </div>
+      <button id="connBtn">Bul</button>
+      <div class="result" id="connResult"></div>
+    </section>
+  </main>
+
+  <footer>GraphRAG · yerel arşiv zekâsı servisi</footer>
+
+  <script>
+    // ---- JavaScript: sayfanın DAVRANIŞI (butona basınca API'yi çağır) ----
+
+    // Küçük yardımcı: bir butona tıklanınca çalışacak akışı sarmalar
+    // (butonu kilitler, "Çalışıyor..." yazar, işi yapar, sonucu gösterir).
+    async function run(btn, resultEl, work) {
+      btn.disabled = true;
+      resultEl.classList.remove("ok");
+      resultEl.textContent = "Çalışıyor…";
+      try {
+        resultEl.textContent = await work();
+        resultEl.classList.add("ok");
+      } catch (e) {
+        resultEl.textContent = "Hata: " + e.message;
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    // Panel 1 — POST /documents
+    const ingestBtn = document.getElementById("ingestBtn");
+    ingestBtn.addEventListener("click", () => {
+      const uri = document.getElementById("uri").value.trim();
+      run(ingestBtn, document.getElementById("ingestResult"), async () => {
+        const r = await fetch("/documents", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ uri }),
+        });
+        if (!r.ok) throw new Error("sunucu " + r.status);
+        const data = await r.json();
+        return "Durum: " + data.state + "\nBelge kimliği: " + data.document_id;
+      });
+    });
+
+    // Panel 2 — POST /ask
+    const askBtn = document.getElementById("askBtn");
+    askBtn.addEventListener("click", () => {
+      const question = document.getElementById("question").value.trim();
+      run(askBtn, document.getElementById("askResult"), async () => {
+        const r = await fetch("/ask", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ question }),
+        });
+        if (!r.ok) throw new Error("sunucu " + r.status);
+        return (await r.json()).answer;
+      });
+    });
+
+    // Panel 3 — GET /connection?source=...&target=...
+    const connBtn = document.getElementById("connBtn");
+    connBtn.addEventListener("click", () => {
+      const source = document.getElementById("source").value.trim();
+      const target = document.getElementById("target").value.trim();
+      run(connBtn, document.getElementById("connResult"), async () => {
+        const url = "/connection?source=" + encodeURIComponent(source) +
+                    "&target=" + encodeURIComponent(target);
+        const r = await fetch(url);
+        if (!r.ok) throw new Error("sunucu " + r.status);
+        return (await r.json()).result;
+      });
+    });
+  </script>
+</body>
+</html>
