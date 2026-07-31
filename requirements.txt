@@ -5,3 +5,6 @@ python-docx
 sqlalchemy
 psycopg[binary]
 pgvector
+fastapi
+uvicorn[standard]
+httpx
