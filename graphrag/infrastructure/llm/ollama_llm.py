@@ -13,7 +13,7 @@ import requests
 from graphrag.domain.interfaces import ILanguageModel
 
 _BASE_URL = "http://localhost:11434"
-_MODEL = "llama3.2"
+_MODEL = "qwen2.5:7b"
 _EMBED_MODEL = "bge-m3"
 
 
