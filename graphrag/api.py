@@ -14,7 +14,10 @@ Sonra tarayıcıda: http://localhost:8000/docs
 """
 from __future__ import annotations
 
+import os
+
 from fastapi import Depends, FastAPI
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from graphrag.application.graphrag_core import GraphRAGCore
@@ -69,3 +72,12 @@ def ask(req: AskRequest, core: GraphRAGCore = Depends(get_core)):
 def connection(source: str, target: str, core: GraphRAGCore = Depends(get_core)):
     """İki varlık arasındaki graf bağlantısını bulur."""
     return {"result": core.find_connection(source, target)}
+
+
+# --- Web arayüzü (frontend) --------------------------------------------------
+# static/index.html'i sunar. Aynı sunucudan geldiği için tarayıcıdaki JavaScript,
+# yukarıdaki endpoint'leri (/ask, /documents, /connection) CORS derdi olmadan
+# çağırabilir. Adres: http://localhost:8000/app/
+_STATIC_DIR = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "static")
+app.mount("/app", StaticFiles(directory=_STATIC_DIR, html=True), name="ui")
