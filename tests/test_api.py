@@ -61,3 +61,10 @@ def test_connection_kaynak_ve_hedefi_gecirir():
     r = client.get("/connection", params={"source": "A", "target": "B"})
     assert r.status_code == 200
     assert r.json() == {"result": "A -> B"}
+
+
+def test_web_arayuzu_sunuluyor():
+    # /app/ statik arayüz sayfasını (HTML) döndürmeli.
+    r = client.get("/app/")
+    assert r.status_code == 200
+    assert "Arşiv Zekâsı" in r.text
