@@ -20,7 +20,7 @@ from graphrag.infrastructure.ingestion.auto_loader import AutoDocumentLoader
 from graphrag.infrastructure.keyword.bm25_index import InMemoryKeywordIndex
 from graphrag.infrastructure.llm.cached_llm import CachedLanguageModel
 from graphrag.infrastructure.llm.ollama_llm import OllamaLanguageModel
-from graphrag.infrastructure.nlp.entity_extractor import SimpleEntityExtractor
+from graphrag.infrastructure.nlp.llm_entity_extractor import LlmEntityExtractor
 from graphrag.infrastructure.privacy.audit_log import InMemoryAuditLog
 from graphrag.infrastructure.privacy.kvkk_redactor import KvkkPiiRedactor
 from graphrag.infrastructure.vector.vector_store import InMemoryVectorStore
@@ -51,12 +51,14 @@ def _build_storage():
 
 def build_core() -> GraphRAGCore:
     audit_log, vectors, graph = _build_storage()
+    # Tek bir önbellekli LLM; hem cevap üretimi hem varlık çıkarımı paylaşır.
+    llm = CachedLanguageModel(OllamaLanguageModel(), InMemoryCache())
     return GraphRAGCore(
         loader=AutoDocumentLoader(),
-        llm=CachedLanguageModel(OllamaLanguageModel(), InMemoryCache()),
+        llm=llm,
         vectors=vectors,
         graph=graph,
-        extractor=SimpleEntityExtractor(),
+        extractor=LlmEntityExtractor(llm),
         privacy=KvkkPiiRedactor(audit_log),
         chunker=SlidingWindowChunker(),
         keyword_index=InMemoryKeywordIndex(),
