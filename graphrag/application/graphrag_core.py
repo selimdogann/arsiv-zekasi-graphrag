@@ -11,11 +11,13 @@ import math
 
 from graphrag.domain.entities import Chunk, Document, DocumentState, GraphEdge, GraphNode
 from graphrag.domain.exceptions import PathNotFoundError
+from graphrag.application.fusion import reciprocal_rank_fusion
 from graphrag.domain.interfaces import (
     IChunker,
     IDocumentLoader,
     IEntityExtractor,
     IGraphStore,
+    IKeywordIndex,
     ILanguageModel,
     IPrivacyFilter,
     IVectorStore,
@@ -29,7 +31,7 @@ class GraphRAGCore:
     def __init__(self, loader: IDocumentLoader, llm: ILanguageModel,
                  vectors: IVectorStore, graph: IGraphStore,
                  extractor: IEntityExtractor, privacy: IPrivacyFilter,
-                 chunker: IChunker) -> None:
+                 chunker: IChunker, keyword_index: IKeywordIndex) -> None:
         self._loader = loader
         self._llm = llm
         self._vectors = vectors
@@ -38,6 +40,7 @@ class GraphRAGCore:
         self._extractor = extractor
         self._privacy = privacy
         self._chunker = chunker
+        self._keyword = keyword_index
 
     def ingest(self, uri: str) -> Document:
         document = self._loader.load(uri)
@@ -56,6 +59,7 @@ class GraphRAGCore:
             for i, piece in enumerate(pieces)
         ]
         self._vectors.upsert(chunks)
+        self._keyword.index(chunks)   # aynı parçaları anahtar-kelime (BM25) indeksine de koy
 
         entity_names = self._extractor.extract(document.raw_text)
         node_ids = []
@@ -81,13 +85,23 @@ class GraphRAGCore:
         return document
 
     def answer(self, question: str) -> str:
+        # MELEZ (hybrid) retrieval: anlamsal (vektör) + anahtar kelime (BM25)
+        # aramalarını ayrı ayrı yapıp, sonuçları RRF ile birleştir.
         question_embedding = self._llm.embed(question)
-        results = self._vectors.search(question_embedding, top_k=3)
-        if not results:
+        vector_hits = self._vectors.search(question_embedding, top_k=10)
+        keyword_hits = self._keyword.search(question, top_k=10)
+
+        by_id = {chunk.chunk_id: chunk for chunk, _ in vector_hits}
+        by_id.update({chunk.chunk_id: chunk for chunk, _ in keyword_hits})
+        if not by_id:
             return "Arşivde bu soruyla ilgili bir şey bulamadım."
 
-        # En benzer birkaç parçayı birleştirip tek bir BAĞLAM oluştur.
-        context = "\n\n".join(chunk.text for chunk, score in results)
+        vector_ranking = [chunk.chunk_id for chunk, _ in vector_hits]
+        keyword_ranking = [chunk.chunk_id for chunk, _ in keyword_hits]
+        fused_ids = reciprocal_rank_fusion([vector_ranking, keyword_ranking])[:3]
+
+        # Birleşik sıralamada en iyi parçaları tek bir BAĞLAM'a çevir.
+        context = "\n\n".join(by_id[chunk_id].text for chunk_id in fused_ids)
         prompt = (
     "Aşağıdaki BAĞLAM'a dayanarak soruyu yanıtla. SADECE bağlamda verilen "
     "bilgiyi kullan; bağlamda olmayan hiçbir şeyi UYDURMA. Bağlamda cevap "
