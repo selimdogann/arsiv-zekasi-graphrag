@@ -66,6 +66,22 @@ class IVectorStore(ABC):
         """En benzer top_k chunk'ı, (chunk, benzerlik_skoru) çiftleri olarak döndürür."""
 
 
+class IKeywordIndex(ABC):
+    """Anahtar kelime (BM25) araması sözleşmesi — vektör aramanın 'lexical' eşi.
+
+    Vektör araması ANLAM'a bakar; bu ise birebir KELİME eşleşmesine bakar.
+    İkisi melez (hybrid) kullanıldığında hem eş anlamlılar hem tam terimler yakalanır.
+    """
+
+    @abstractmethod
+    def index(self, chunks: List[Chunk]) -> None:
+        """Chunk'ları anahtar-kelime indeksine ekler."""
+
+    @abstractmethod
+    def search(self, query: str, top_k: int) -> List["tuple[Chunk, float]"]:
+        """Sorguyla en çok kelime örtüşen top_k chunk'ı (chunk, skor) olarak döndürür."""
+
+
 class ILanguageModel(ABC):
     """LLM (dil modeli) çıkarım sözleşmesi."""
 

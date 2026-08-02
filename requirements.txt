@@ -8,3 +8,4 @@ pgvector
 fastapi
 uvicorn[standard]
 httpx
+rank-bm25
