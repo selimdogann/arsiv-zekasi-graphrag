@@ -19,6 +19,7 @@ from graphrag.domain.interfaces import IDocumentLoader, ILanguageModel
 from graphrag.domain.text_tr import canonical_key
 from graphrag.infrastructure.chunking.text_chunker import SlidingWindowChunker
 from graphrag.infrastructure.graph.graph_store import InMemoryGraphStore
+from graphrag.infrastructure.keyword.bm25_index import InMemoryKeywordIndex
 from graphrag.infrastructure.nlp.entity_extractor import SimpleEntityExtractor
 from graphrag.infrastructure.privacy.audit_log import InMemoryAuditLog
 from graphrag.infrastructure.privacy.kvkk_redactor import KvkkPiiRedactor
@@ -66,6 +67,7 @@ def _core_kur():
         extractor=SimpleEntityExtractor(),
         privacy=KvkkPiiRedactor(InMemoryAuditLog()),
         chunker=SlidingWindowChunker(),
+        keyword_index=InMemoryKeywordIndex(),
     )
     return core, loader, llm, vectors, graph
 

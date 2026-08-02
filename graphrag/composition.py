@@ -17,6 +17,7 @@ from graphrag.infrastructure.cache.memory_cache import InMemoryCache
 from graphrag.infrastructure.chunking.text_chunker import SlidingWindowChunker
 from graphrag.infrastructure.graph.graph_store import InMemoryGraphStore
 from graphrag.infrastructure.ingestion.auto_loader import AutoDocumentLoader
+from graphrag.infrastructure.keyword.bm25_index import InMemoryKeywordIndex
 from graphrag.infrastructure.llm.cached_llm import CachedLanguageModel
 from graphrag.infrastructure.llm.ollama_llm import OllamaLanguageModel
 from graphrag.infrastructure.nlp.entity_extractor import SimpleEntityExtractor
@@ -58,4 +59,5 @@ def build_core() -> GraphRAGCore:
         extractor=SimpleEntityExtractor(),
         privacy=KvkkPiiRedactor(audit_log),
         chunker=SlidingWindowChunker(),
+        keyword_index=InMemoryKeywordIndex(),
     )
