@@ -23,15 +23,6 @@ class PIIType(str, Enum):
 
 
 @dataclass(frozen=True)
-class PIIMatch:
-    """Metinde tespit edilmiş tek bir kişisel veri örneği."""
-
-    type: PIIType
-    original: str
-    placeholder: str
-
-
-@dataclass(frozen=True)
 class AuditEvent:
     """Denetim kaydı. Orijinal DEĞERİ asla saklamaz (veri minimizasyonu)."""
 
