@@ -1,0 +1,37 @@
+FİZİBİLİTE RAPORU — YÖNETİCİ ÖZETİ
+
+Hazırlayan: GAMMA DANIŞMANLIK LTD. ŞTİ.
+Rapor No: GMM-FZB-2024-11
+Tarih: 26 Nisan 2024
+
+GİRİŞ
+
+Bu rapor, Gamma Danışmanlık tarafından Proje Zeus kapsamında yürütülen fizibilite
+çalışmasının bulgularını özetlemektedir. Çalışma, teknik uygulanabilirlik, maliyet-fayda
+analizi ve tedarikçi değerlendirmesini kapsamaktadır.
+
+TEKNİK DEĞERLENDİRME
+
+Proje Zeus'un hedeflediği dijital altyapı dönüşümünün teknik açıdan uygulanabilir olduğu
+tespit edilmiştir. Ancak mevcut sistemlerin modernizasyonu için özel bir yazılım geliştirme
+iş ortağına ihtiyaç duyulacaktır.
+
+TEDARİKÇİ ÖNERİSİ
+
+Yapılan pazar araştırması ve teknik yeterlilik incelemesi sonucunda, yazılım geliştirme
+bileşeninin DELTA YAZILIM A.Ş. ile yürütülmesi önerilmektedir. Delta Yazılım'ın benzer
+ölçekli kurumsal projelerdeki referansları değerlendirilmiş ve olumlu bulunmuştur.
+
+MALİYET ANALİZİ
+
+Fizibilite çalışması bulgularına göre, yazılım geliştirme kaleminin toplam proje bütçesinin
+yaklaşık %35'ini oluşturması beklenmektedir.
+
+İLETİŞİM
+
+Rapor sorumlusu: Zeynep Demir (T.C. Kimlik No: 12345678901)
+Kurumsal e-posta üzerinden iletişim sağlanabilir.
+
+SONUÇ
+
+Proje Zeus'un ikinci fazına geçişi teknik ve mali açıdan uygun bulunmuştur.
