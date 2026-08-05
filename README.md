@@ -96,10 +96,13 @@ uvicorn graphrag.api:app --reload
 - Web arayüzü: <http://localhost:8000/app/>
 - Otomatik API dokümanı (Swagger UI): <http://localhost:8000/docs>
 
-### 5. Uçtan uca demo (CLI)
+### 5. Arşivi sıfırlama (gerektiğinde)
 ```bash
-PYTHONPATH=. python3 examples/demo.py
+DATABASE_URL="postgresql+psycopg://graphrag:graphrag@localhost:5432/graphrag" \
+    python3 scripts/reset_archive.py
 ```
+> Tüm belge parçalarını, grafı ve denetim kayıtlarını siler. Sistem hazır/örnek
+> belge içermez; tek veri kaynağı sizin yüklediğiniz belgelerdir.
 
 ### 6. Testler
 ```bash
