@@ -3,183 +3,972 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Arşiv Zekâsı</title>
+  <title>Arşiv Zekâsı — Kurumsal GraphRAG</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <!-- Space Grotesk (başlık) · Inter (gövde) · JetBrains Mono (varlık/skor).
+       latin-ext alt kümesi Türkçe karakterleri (ğ ü ş İ ı ö ç) kapsar. -->
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
   <style>
-    /* ---- CSS: sayfanın GÖRÜNÜMÜ (renk, boşluk, yazı) ---- */
+    /* ==========================================================================
+       TASARIM TEMELİ · Açık tema · beyaz yüzey + derin lacivert metin
+       Kurumsal ürün paneli için ölçülü, keskin ve okunaklı bir taban.
+       Tüm bölümler bu belirteçler üzerine kurulu; tema tek yerden değişir.
+       ========================================================================== */
     :root {
-      --bg: #f4f5f7;
-      --card: #ffffff;
-      --ink: #1f2430;
-      --muted: #6b7280;
-      --line: #e3e6ea;
-      --brand: #2f6fed;
-      --brand-ink: #ffffff;
-      --ok: #0f9d58;
-      --result-bg: #f7f9fc;
-    }
-    @media (prefers-color-scheme: dark) {
-      :root {
-        --bg: #12151b; --card: #1b1f27; --ink: #e6e8ec; --muted: #9aa2ad;
-        --line: #2a2f39; --brand: #4b86f0; --result-bg: #12161d;
-      }
+      /* --- Zemin ve yüzeyler --- */
+      --bg: #F4F7FB;            /* açık gri-mavi zemin (sayfa) */
+      --surface: #FFFFFF;       /* beyaz panel (kart, sidebar) */
+      --surface-2: #F7F9FC;     /* iç yüzey: girdi alanı, sonuç kutusu */
+      --surface-3: #EFF3F9;     /* tablo başlığı gibi ikincil yüzey */
+
+      /* --- Metin (derin lacivert ailesi) --- */
+      --ink: #0B1E33;           /* birincil metin */
+      --muted: #5B6B80;         /* ikincil metin */
+      --faint: #8A9AAE;         /* silik metin, boş durumlar */
+
+      /* --- İnce 1px ayırıcılar --- */
+      --line: #E4EAF1;
+      --line-strong: #CBD5E1;
+
+      /* --- Ana vurgu: teal/mavi (açık zeminde okunacak koyulukta) --- */
+      --accent: #0B6FA4;
+      --accent-2: #0A5F8D;      /* hover */
+      --accent-ink: #FFFFFF;    /* vurgu üzerine beyaz metin */
+      --accent-soft: #EAF3FA;   /* vurgunun açık, ölçülü tonu */
+
+      /* --- KVKK / uyarı: ölçülü amber --- */
+      --amber: #A2660B;
+      --amber-soft: #FDF6EA;
+
+      /* --- Durum renkleri --- */
+      --ok: #0A7350;   --ok-soft: #ECFDF5;
+      --err: #B42318;  --err-soft: #FEF3F2;
+
+      /* --- Yumuşak gölgeler (neon yok, sadece derinlik) --- */
+      --shadow-sm: 0 1px 2px rgba(15,23,42,.06);
+      --shadow: 0 1px 3px rgba(15,23,42,.07), 0 12px 28px rgba(15,23,42,.06);
+      --shadow-lg: 0 20px 50px rgba(15,23,42,.16);
+
+      /* --- Köşe yuvarlaklığı ---
+         --radius: kart, KPI kutusu, yükleme alanı ve butonlar için ortak,
+         orta seviye yumuşaklık ("hap" görünümü olmayacak kadar ölçülü).
+         Diğer küçük öğeler (rozet, satır, tablo) daha küçük değerlerde kalır. */
+      --radius: 11px;
+      --r-xs: 2px;
+      --r: 4px;
+      --r-lg: 6px;
+
+      /* --- Tipografi --- */
+      --font-heading: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+      --font-body: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+      /* --- Geriye dönük adlar ---
+         Mevcut bileşen kuralları bu adları kullanıyor; yeni palete bağlandılar.
+         Böylece tek bir yerden tema değişirken hiçbir kural bozulmaz. --- */
+      --navy: var(--accent);
+      --navy-2: var(--accent-2);
+      --navy-ink: var(--accent-ink);
+      --navy-soft: var(--accent-soft);
+      --gold: var(--amber);
+      --gold-soft: var(--amber-soft);
     }
     * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
     body {
-      margin: 0; background: var(--bg); color: var(--ink);
-      font-family: -apple-system, "Segoe UI", Roboto, sans-serif; line-height: 1.5;
+      margin: 0; color: var(--ink);
+      /* Açık zemin üzerinde çok hafif mavi/amber derinlik */
+      background:
+        radial-gradient(900px 420px at 82% -160px, rgba(11,111,164,.07) 0%, transparent 62%),
+        radial-gradient(760px 360px at 6% -110px, rgba(162,102,11,.05) 0%, transparent 58%),
+        var(--bg);
+      font-family: var(--font-body);
+      line-height: 1.55; -webkit-font-smoothing: antialiased;
     }
-    header {
-      padding: 28px 20px; text-align: center; border-bottom: 1px solid var(--line);
-      background: var(--card);
+
+    /* Başlıklar: Space Grotesk */
+    h1, h2, h3, .brand b { font-family: var(--font-heading); }
+    /* Varlık adları, skorlar, sayılar ve kimlikler: JetBrains Mono */
+    .k-val, .num, .ent, .node, .mono, .conf b, .badge { font-family: var(--font-mono); }
+
+    /* ===== Sol kenar çubuğu (sidebar) ===== */
+    :root { --sidebar-w: 244px; --statusbar-h: 46px; }
+    .sidebar {
+      position: fixed; inset: 0 auto 0 0; width: var(--sidebar-w); z-index: 40;
+      background: var(--surface); border-right: 1px solid var(--line);
+      display: flex; flex-direction: column;
     }
-    header h1 { margin: 0; font-size: 1.5rem; }
-    header p { margin: 6px 0 0; color: var(--muted); font-size: .95rem; }
-    main {
-      max-width: 780px; margin: 0 auto; padding: 22px 16px;
-      display: grid; gap: 18px;
+    .side-brand { display: flex; align-items: center; gap: 11px; padding: 16px 18px; border-bottom: 1px solid var(--line); }
+    .logo { width: 32px; height: 32px; flex: 0 0 auto; }
+    .brand b { font-weight: 700; font-size: .97rem; letter-spacing: -.02em; display: block; }
+    .brand span { color: var(--muted); font-size: .71rem; font-weight: 500; }
+
+    .side-nav { padding: 12px 10px; display: flex; flex-direction: column; gap: 2px; flex: 1 1 auto; overflow-y: auto; }
+    .nav-item {
+      display: flex; align-items: center; gap: 11px; padding: 9px 12px; border-radius: var(--r);
+      color: var(--muted); text-decoration: none; font-size: .87rem; font-weight: 500;
+      border-left: 2px solid transparent; transition: background .14s, color .14s;
     }
-    .card {
-      background: var(--card); border: 1px solid var(--line); border-radius: 12px;
-      padding: 18px 18px 20px;
+    .nav-item svg { width: 17px; height: 17px; flex: 0 0 auto; opacity: .85; }
+    .nav-item:hover { background: var(--surface-2); color: var(--ink); }
+    .nav-item.active { background: var(--accent-soft); color: var(--accent); border-left-color: var(--accent); }
+    .nav-item.active svg { opacity: 1; }
+
+    .side-foot { padding: 12px 14px; border-top: 1px solid var(--line); }
+    .onprem {
+      display: flex; align-items: flex-start; gap: 8px; font-size: .71rem; font-weight: 500;
+      color: var(--amber); background: var(--amber-soft); border: 1px solid color-mix(in srgb, var(--amber) 26%, transparent);
+      padding: 8px 10px; border-radius: var(--r); line-height: 1.35;
     }
-    .card h2 { margin: 0 0 4px; font-size: 1.05rem; }
-    .card .hint { margin: 0 0 14px; color: var(--muted); font-size: .85rem; }
-    label { display: block; font-size: .8rem; color: var(--muted); margin: 10px 0 4px; }
-    input, textarea {
-      width: 100%; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px;
-      background: var(--bg); color: var(--ink); font: inherit;
+    .onprem svg { width: 13px; height: 13px; flex: 0 0 auto; margin-top: 1px; }
+
+    /* ===== Üst ince durum çubuğu ===== */
+    .statusbar {
+      position: sticky; top: 0; z-index: 30; height: var(--statusbar-h);
+      display: flex; align-items: center; gap: 10px; padding: 0 20px;
+      background: rgba(255,255,255,.86); backdrop-filter: saturate(1.3) blur(12px);
+      border-bottom: 1px solid var(--line);
     }
-    textarea { min-height: 66px; resize: vertical; }
-    .row { display: flex; gap: 10px; flex-wrap: wrap; }
-    .row > div { flex: 1 1 200px; }
-    button {
-      margin-top: 14px; padding: 10px 18px; border: 0; border-radius: 8px;
-      background: var(--brand); color: var(--brand-ink); font: inherit; font-weight: 600;
-      cursor: pointer;
+    .sb-right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+    .menu-btn { display: none; background: transparent; color: var(--muted); border: 1px solid var(--line-strong); padding: 6px; box-shadow: none; }
+    .menu-btn svg { width: 17px; height: 17px; }
+    .menu-btn:hover { background: var(--surface-2); color: var(--ink); }
+
+    .pill { display: inline-flex; align-items: center; gap: 6px; font-size: .72rem; font-weight: 600; padding: 5px 10px; border-radius: var(--r); border: 1px solid var(--line-strong); background: var(--surface); color: var(--muted); white-space: nowrap; }
+    .pill .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--faint); }
+    .pill .model { font-family: var(--font-mono); font-size: .68rem; font-weight: 500; color: var(--faint); padding-left: 5px; margin-left: 3px; border-left: 1px solid var(--line-strong); }
+    .pill.up { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 30%, transparent); background: var(--ok-soft); }
+    .pill.up .dot { background: var(--ok); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ok) 16%, transparent); }
+    .pill.up .model { color: color-mix(in srgb, var(--ok) 75%, var(--ink)); border-left-color: color-mix(in srgb, var(--ok) 30%, transparent); }
+    .pill.down { color: var(--err); border-color: color-mix(in srgb, var(--err) 30%, transparent); background: var(--err-soft); }
+    .pill.down .dot { background: var(--err); }
+    .pill.down .model { color: color-mix(in srgb, var(--err) 70%, var(--ink)); border-left-color: color-mix(in srgb, var(--err) 30%, transparent); }
+
+    /* ===== Yerleşim: içerik sidebar kadar sağa kayar ===== */
+    body { padding-left: var(--sidebar-w); }
+    main { max-width: 1080px; margin: 0 auto; padding: 40px 22px 60px; }
+
+    /* ===== Mobil: sidebar daraltılabilir ===== */
+    .scrim { position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 35; }
+    @media (max-width: 900px) {
+      body { padding-left: 0; }
+      .sidebar { transform: translateX(-100%); transition: transform .22s ease; box-shadow: var(--shadow-lg); }
+      .sidebar.open { transform: translateX(0); }
+      .menu-btn { display: inline-flex; }
+      .pill.hide-sm { display: none; }
     }
-    button:disabled { opacity: .6; cursor: default; }
-    .result {
-      margin-top: 14px; padding: 12px 14px; border-radius: 8px; background: var(--result-bg);
-      border: 1px solid var(--line); font-size: .92rem; white-space: pre-wrap;
-      min-height: 20px; color: var(--ink);
+    @media (min-width: 901px) { .scrim { display: none; } }
+
+    /* ===== Hero ===== */
+    .hero { margin-bottom: 26px; }
+    .eyebrow { display: inline-flex; align-items: center; gap: 7px; font-size: .74rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--gold); background: var(--gold-soft); border: 1px solid color-mix(in srgb, var(--gold) 25%, transparent); padding: 5px 12px; border-radius: var(--r-lg); }
+    .hero h1 { margin: 14px 0 0; font-size: 2.2rem; font-weight: 800; letter-spacing: -.035em; line-height: 1.12; }
+    .hero h1 .accent { color: var(--navy); }
+    .hero p { margin: 13px 0 0; color: var(--muted); font-size: 1.03rem; max-width: 64ch; }
+
+    /* ===== KPI paneli ===== */
+    .kpis { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin: 28px 0 14px; }
+    @media (min-width: 780px) { .kpis { grid-template-columns: repeat(4, 1fr); } }
+    /* Küçük ve net KPI kartı: sayı büyük, etiket küçük */
+    /* Canlı veri kartı: dolu beyaz zemin + gölge + sol vurgu şeridi */
+    .kpi { background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--radius); padding: 14px 16px; box-shadow: var(--shadow-sm); position: relative; overflow: hidden; }
+    .kpi::after { content: ""; position: absolute; inset: 0 auto 0 0; width: 3px; background: var(--accent); }
+    .kpi .k-val { font-size: 2.1rem; font-weight: 700; letter-spacing: -.04em; line-height: 1.05; color: var(--ink); font-variant-numeric: tabular-nums; }
+    .kpi .k-label { color: var(--ink); font-size: .78rem; font-weight: 600; margin-top: 4px; }
+    .kpi .k-sub { color: var(--faint); font-size: .7rem; margin-top: 1px; }
+
+    /* ===== Bölüm etiketi: canlı veri ile bilgilendirmeyi ayırır ===== */
+    .section-label {
+      display: flex; align-items: center; gap: 11px; margin: 26px 0 12px;
+      font-size: .69rem; font-weight: 600; letter-spacing: .11em;
+      text-transform: uppercase; color: var(--faint);
     }
-    .result:empty { display: none; }
-    .result.ok { border-color: var(--ok); }
-    footer { text-align: center; color: var(--muted); font-size: .8rem; padding: 20px; }
+    .section-label::after { content: ""; flex: 1 1 auto; height: 1px; background: var(--line); }
+
+    /* ===== Özellik şeridi (İKİNCİL: veri değil, bilgilendirme) =====
+       KPI kartlarından ayrışsın diye bilinçli olarak sönük: zeminsiz,
+       gölgesiz, daha soluk metin ve nötr ikon. */
+    .features { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 30px; }
+    @media (min-width: 780px) { .features { grid-template-columns: repeat(4, 1fr); } }
+    .feature {
+      background: transparent;                 /* panel zemini görünür → geri planda durur */
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 14px 15px;
+      box-shadow: none;                        /* gölge yok */
+    }
+    .f-icon {
+      color: var(--muted); background: transparent;
+      border: 1px solid var(--line);
+      width: 28px; height: 28px; border-radius: var(--r);
+      display: grid; place-items: center;
+    }
+    .feature h3 { margin: 10px 0 2px; font-size: .82rem; font-weight: 600; letter-spacing: -.005em; color: var(--muted); }
+    .feature p { margin: 0; color: var(--faint); font-size: .76rem; line-height: 1.45; }
+
+    /* ===== Kartlar ===== */
+    .grid { display: grid; gap: 20px; }
+    @media (min-width: 800px) { .grid { grid-template-columns: 1fr 1fr; } .card.wide { grid-column: 1 / -1; } }
+    .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 22px; box-shadow: var(--shadow); }
+    .card-head { display: flex; align-items: center; gap: 12px; margin-bottom: 3px; }
+    .num { font-weight: 800; font-size: .8rem; letter-spacing: .04em; color: var(--gold); background: var(--gold-soft); border: 1px solid color-mix(in srgb, var(--gold) 28%, transparent); min-width: 34px; height: 26px; padding: 0 6px; border-radius: var(--r); display: grid; place-items: center; flex: 0 0 auto; }
+    .card h2 { margin: 0; font-size: 1.06rem; font-weight: 700; letter-spacing: -.015em; }
+    .card-head .side { margin-left: auto; }
+    .hint { margin: 4px 0 16px; color: var(--muted); font-size: .85rem; }
+
+    label { display: block; font-size: .75rem; font-weight: 600; color: var(--muted); margin: 12px 0 5px; }
+    input, textarea { width: 100%; padding: 11px 13px; border: 1px solid var(--line-strong); border-radius: var(--r); background: var(--surface-2); color: var(--ink); font: inherit; transition: border-color .15s, box-shadow .15s; }
+    input::placeholder, textarea::placeholder { color: var(--faint); }
+    input:focus, textarea:focus { outline: none; border-color: var(--navy); box-shadow: 0 0 0 3px color-mix(in srgb, var(--navy) 16%, transparent); }
+    textarea { min-height: 78px; resize: vertical; }
+    .two { display: flex; gap: 12px; flex-wrap: wrap; }
+    .two > div { flex: 1 1 190px; }
+
+    button { border: 0; border-radius: var(--radius); background: var(--navy); color: var(--navy-ink); font: inherit; font-weight: 600; font-size: .93rem; padding: 11px 20px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 8px; box-shadow: var(--shadow-sm); transition: background .15s, transform .04s; }
+    button:hover { background: var(--navy-2); }
+    button:active { transform: translateY(1px); }
+    button:disabled { opacity: .55; cursor: default; }
+    .btn-row { display: flex; align-items: center; gap: 10px; margin-top: 16px; flex-wrap: wrap; }
+    .kbd { color: var(--faint); font-size: .74rem; }
+    .ghost { background: transparent; color: var(--navy); border: 1px solid var(--line-strong); box-shadow: none; padding: 8px 14px; font-size: .84rem; }
+    .ghost:hover { background: var(--navy-soft); }
+    .spinner { width: 15px; height: 15px; border: 2px solid color-mix(in srgb, var(--accent-ink) 35%, transparent); border-top-color: var(--accent-ink); border-radius: 50%; animation: spin .7s linear infinite; }
+    .ghost .spinner { border-color: color-mix(in srgb, var(--navy) 30%, transparent); border-top-color: var(--navy); }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ===== Yükleme alanı ===== */
+    .dropzone { border: 2px dashed var(--line-strong); border-radius: var(--radius); padding: 28px 18px; text-align: center; cursor: pointer; background: var(--surface-2); transition: border-color .15s, background .15s; }
+    .dropzone:hover, .dropzone.over { border-color: var(--navy); background: var(--navy-soft); }
+    .dz-ic { color: var(--navy); }
+    .dz-title { font-weight: 600; margin-top: 8px; font-size: .92rem; }
+    .dz-sub { color: var(--muted); font-size: .79rem; margin-top: 3px; }
+    .chips { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 14px; }
+    .chips .lbl { color: var(--muted); font-size: .79rem; font-weight: 500; }
+    .chip { border: 1px solid var(--line-strong); background: var(--surface); border-radius: var(--radius); padding: 6px 13px; font-size: .81rem; font-weight: 600; color: var(--navy); box-shadow: none; }
+    .chip:hover { background: var(--navy-soft); }
+
+    /* ===== Listeler / sonuç ===== */
+    .doclist { list-style: none; margin: 16px 0 0; padding: 0; display: grid; gap: 8px; }
+    .doc { display: flex; align-items: center; gap: 10px; padding: 10px 13px; border: 1px solid var(--line); border-radius: var(--r); background: var(--surface-2); font-size: .87rem; animation: slideIn .25s ease; }
+    @keyframes slideIn { from { opacity: 0; transform: translateY(-4px); } }
+    .doc .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); flex: 0 0 auto; }
+    .doc .name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .doc .tag { margin-left: auto; color: var(--ok); background: var(--ok-soft); font-size: .69rem; font-weight: 700; padding: 3px 9px; border-radius: var(--r-lg); }
+    .empty { color: var(--faint); font-size: .84rem; text-align: center; padding: 18px 10px; border: 1px dashed var(--line-strong); border-radius: var(--r); margin-top: 14px; }
+
+    .result { margin-top: 16px; font-size: .92rem; }
+    .answer { padding: 14px 16px; border-radius: var(--r-lg); background: var(--surface-2); border: 1px solid var(--line); white-space: pre-wrap; }
+    .answer.err { background: var(--err-soft); border-color: color-mix(in srgb, var(--err) 40%, transparent); color: var(--err); }
+
+    /* ===== Cevap: belgeye dayandığını görsel olarak vurgular ===== */
+    .grounded {
+      display: flex; align-items: center; gap: 7px; font-size: .73rem; font-weight: 600;
+      color: var(--ok); background: var(--ok-soft);
+      border: 1px solid color-mix(in srgb, var(--ok) 26%, transparent);
+      padding: 6px 10px; border-radius: var(--r); margin-bottom: 8px;
+    }
+    .grounded svg { width: 13px; height: 13px; flex: 0 0 auto; }
+    .grounded.none { color: var(--amber); background: var(--amber-soft); border-color: color-mix(in srgb, var(--amber) 26%, transparent); }
+    /* Cevap kutusu, kaynağa dayandığında sol teal şeritle işaretlenir */
+    .answer.cited { border-left: 3px solid var(--accent); }
+
+    /* ===== Kaynak gösterimi (citations) ===== */
+    .sources { margin-top: 14px; }
+    .src-head {
+      display: flex; align-items: center; gap: 8px; margin-bottom: 9px;
+      font-size: .73rem; font-weight: 700; color: var(--ink);
+      text-transform: uppercase; letter-spacing: .1em;
+    }
+    .src-head::after { content: ""; flex: 1 1 auto; height: 1px; background: var(--line); }
+    .src-head .src-count {
+      font-family: var(--font-mono); font-size: .7rem; font-weight: 700; letter-spacing: 0;
+      color: var(--accent-ink); background: var(--accent);
+      padding: 1px 7px; border-radius: var(--r-xs);
+    }
+    .src {
+      border: 1px solid var(--line); border-left: 3px solid var(--amber);
+      border-radius: var(--r); background: var(--surface-2);
+      padding: 10px 12px; margin-bottom: 8px;
+    }
+    .src-top { display: flex; align-items: center; gap: 8px; }
+    .src-idx {
+      font-family: var(--font-mono); font-size: .68rem; font-weight: 700;
+      color: var(--amber); background: var(--amber-soft);
+      border: 1px solid color-mix(in srgb, var(--amber) 30%, transparent);
+      min-width: 18px; height: 18px; border-radius: var(--r-xs);
+      display: grid; place-items: center; flex: 0 0 auto;
+    }
+    .src-doc {
+      font-family: var(--font-mono); font-size: .77rem; font-weight: 500; color: var(--ink);
+      display: flex; align-items: center; gap: 6px; overflow: hidden;
+      text-overflow: ellipsis; white-space: nowrap;
+    }
+    .src-doc svg { width: 12px; height: 12px; flex: 0 0 auto; color: var(--muted); }
+    .src-text {
+      font-size: .81rem; color: var(--muted); margin-top: 6px; line-height: 1.5;
+      padding-left: 26px; border-left: 1px solid transparent;
+    }
+
+    /* ===== Yükleniyor / boş durumlar ===== */
+    .skeleton { margin-top: 4px; }
+    .sk-line { height: 11px; border-radius: var(--r-xs); background: var(--surface-2); margin-bottom: 8px; position: relative; overflow: hidden; }
+    .sk-line::after {
+      content: ""; position: absolute; inset: 0;
+      background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--accent) 10%, transparent), transparent);
+      animation: shimmer 1.2s infinite;
+    }
+    @keyframes shimmer { from { transform: translateX(-100%); } to { transform: translateX(100%); } }
+    .sk-line.w70 { width: 70%; } .sk-line.w45 { width: 45%; }
+    .sk-note { color: var(--faint); font-size: .78rem; margin-top: 10px; display: flex; align-items: center; gap: 7px; }
+
+    /* ===== Graf ===== */
+    /* ===== Graf: varlık zinciri =====
+       Zincir TEK SATIRDA kalır (flex-wrap yok). Sarma açık kaldığında son
+       düğüm alt satıra kayıyor ve ona giden ok üst satırda "boşta" görünüyordu. */
+    .graph {
+      margin-top: 18px; padding: 22px 16px; min-height: 66px;
+      border: 1px solid var(--line); border-radius: var(--r-lg);
+      background: linear-gradient(180deg, var(--surface-2), var(--surface));
+      overflow-x: auto;          /* uzun zincirlerde yatay kaydırma */
+    }
+    .chain {
+      display: flex; flex-wrap: nowrap; align-items: stretch;
+      justify-content: center; gap: 0; min-width: min-content;
+    }
+    /* Düğümler eşit boyutta: aynı flex tabanı + ortak asgari genişlik */
+    .node {
+      flex: 1 1 0; min-width: 132px; max-width: 200px;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      padding: 12px 14px; text-align: center;
+      border: 1.5px solid var(--accent); border-radius: var(--r-lg);
+      background: var(--surface); color: var(--ink);
+      font-size: .85rem; font-weight: 500; line-height: 1.3;
+      box-shadow: var(--shadow-sm); animation: pop .3s ease backwards;
+    }
+    .node .pin { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); flex: 0 0 auto; }
+    .node .nm { overflow: hidden; text-overflow: ellipsis; }
+    /* Uç düğümler (kaynak ve hedef) amber ile ayrılır */
+    .node.end { border-color: var(--amber); }
+    .node.end .pin { background: var(--amber); }
+    @keyframes pop { from { opacity: 0; transform: scale(.96); } }
+
+    /* Bağlayıcı ok: iki düğüm arasında, sabit genişlikte, hep bağlı */
+    .edge { flex: 0 0 38px; display: flex; align-items: center; justify-content: center; color: var(--muted); }
+    .edge svg { width: 38px; height: 12px; }
+
+    /* Güven skoru: nötr rozet (düşük skor normaldir, alarm rengi kullanılmaz) */
+    .conf-row { display: flex; flex-direction: column; align-items: center; gap: 6px; margin-top: 14px; }
+    .conf-badge {
+      display: inline-flex; align-items: center; gap: 9px;
+      padding: 7px 13px; border-radius: var(--r);
+      border: 1px solid var(--line-strong); background: var(--surface-2);
+    }
+    .conf-badge .lbl { font-size: .74rem; font-weight: 600; color: var(--muted); }
+    .conf-badge .val { font-family: var(--font-mono); font-size: .95rem; font-weight: 700; color: var(--ink); }
+    .conf-badge .sep { width: 1px; height: 14px; background: var(--line-strong); }
+    .conf-badge .hops { font-family: var(--font-mono); font-size: .74rem; color: var(--muted); }
+    .conf-note { font-size: .74rem; color: var(--faint); text-align: center; max-width: 46ch; line-height: 1.45; }
+
+    /* ===== Varlık gezgini ===== */
+    .entities { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 14px; }
+    .ent { border: 1px solid var(--line-strong); background: var(--surface-2); color: var(--ink); border-radius: var(--r-lg); padding: 6px 13px; font-size: .82rem; font-weight: 600; box-shadow: none; }
+    .ent:hover { background: var(--navy-soft); border-color: var(--navy); color: var(--navy); }
+
+    /* ===== Tablolar (varlıklar + KVKK denetim kaydı) ===== */
+    .table-wrap { overflow-x: auto; margin-top: 14px; border: 1px solid var(--line); border-radius: var(--r); }
+    table { width: 100%; border-collapse: collapse; font-size: .84rem; min-width: 420px; }
+    th { text-align: left; font-size: .69rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); background: var(--surface-3); padding: 9px 13px; font-weight: 700; border-bottom: 1px solid var(--line); white-space: nowrap; }
+    td { padding: 9px 13px; border-bottom: 1px solid var(--line); color: var(--ink); vertical-align: middle; }
+    tr:last-child td { border-bottom: 0; }
+    tbody tr:hover td { background: var(--surface-2); }
+    .w-idx { width: 42px; } .w-tag { width: 118px; } .w-time { width: 132px; }
+    .t-idx { font-family: var(--font-mono); font-size: .74rem; color: var(--faint); }
+    .t-time { font-family: var(--font-mono); font-size: .74rem; color: var(--muted); white-space: nowrap; }
+    .badge { font-size: .68rem; font-weight: 700; padding: 3px 8px; border-radius: var(--r-xs); background: var(--accent-soft); color: var(--accent); border: 1px solid color-mix(in srgb, var(--accent) 24%, transparent); }
+    .badge.masked { background: var(--amber-soft); color: var(--amber); border-color: color-mix(in srgb, var(--amber) 26%, transparent); }
+    .mono { font-family: var(--font-mono); font-size: .82rem; color: var(--ink); }
+
+    /* Maskeleme eşlemesi:  TCKN değeri  →  [TCKN_1] */
+    .mask-map { display: flex; align-items: center; gap: 9px; font-family: var(--font-mono); font-size: .79rem; }
+    .mask-src { color: var(--faint); text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--err) 55%, transparent); }
+    .mask-arrow { color: var(--muted); flex: 0 0 auto; }
+    .mask-dst { color: var(--amber); font-weight: 500; }
+
+    /* Tıklanabilir satır (varlık gezgini) + başlık sayacı */
+    tr.clickable { cursor: pointer; }
+    .count-badge { font-family: var(--font-mono); font-size: .72rem; font-weight: 700; color: var(--muted); background: var(--surface-2); border: 1px solid var(--line-strong); padding: 3px 9px; border-radius: var(--r-xs); }
+    .note { display: flex; gap: 9px; align-items: flex-start; margin-top: 13px; padding: 11px 13px; border-radius: var(--r); background: var(--navy-soft); border: 1px solid color-mix(in srgb, var(--navy) 15%, transparent); font-size: .8rem; color: var(--navy); }
+
+    /* ===== Bildirim (toast) ===== */
+    #toasts { position: fixed; right: 18px; bottom: 18px; z-index: 60; display: flex; flex-direction: column; gap: 9px; }
+    .toast { background: var(--surface); border: 1px solid var(--line); border-left: 3px solid var(--ok); border-radius: var(--r); padding: 11px 15px; box-shadow: var(--shadow-lg); font-size: .86rem; font-weight: 500; animation: toastIn .25s ease; max-width: 330px; }
+    .toast.err { border-left-color: var(--err); color: var(--err); }
+    @keyframes toastIn { from { opacity: 0; transform: translateX(14px); } }
+
+    footer { text-align: center; color: var(--faint); font-size: .79rem; padding: 14px 22px 36px; }
+    footer b { color: var(--muted); font-weight: 600; }
   </style>
 </head>
 <body>
-  <!-- ---- HTML: sayfanın İSKELETİ (ne nerede duruyor) ---- -->
-  <header>
-    <h1>Arşiv Zekâsı</h1>
-    <p>Belge yükle · Soru sor · Varlıklar arası bağlantı bul</p>
-  </header>
+  <!-- ===== Sol sabit kenar çubuğu (sidebar) ===== -->
+  <aside class="sidebar" id="sidebar" aria-label="Ana gezinme">
+    <div class="side-brand">
+      <svg class="logo" viewBox="0 0 44 44" fill="none" aria-hidden="true">
+        <rect width="44" height="44" rx="4" fill="#0B1E33"/>
+        <line x1="14" y1="30" x2="30" y2="14" stroke="#4FB3E0" stroke-width="2.2" stroke-opacity=".95"/>
+        <line x1="14" y1="30" x2="31" y2="30" stroke="#4FB3E0" stroke-width="2.2" stroke-opacity=".45"/>
+        <circle cx="14" cy="30" r="4.4" fill="#FFFFFF"/>
+        <circle cx="30" cy="14" r="4.4" fill="#E0A82E"/>
+        <circle cx="31" cy="30" r="3.4" fill="#FFFFFF" fill-opacity=".72"/>
+      </svg>
+      <div class="brand"><b>Arşiv Zekâsı</b><span>Kurumsal GraphRAG</span></div>
+    </div>
+
+    <!-- Gezinme · Lucide ikon setinden (satır içi SVG, dış bağımlılık yok) -->
+    <nav class="side-nav">
+      <a class="nav-item" data-target="kpis" href="#">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>
+        <span>İstatistikler</span>
+      </a>
+      <a class="nav-item" data-target="card-0" href="#">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M10 9H8"/></svg>
+        <span>Belgeler</span>
+      </a>
+      <a class="nav-item" data-target="card-1" href="#">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+        <span>Sorgu</span>
+      </a>
+      <a class="nav-item" data-target="card-2" href="#">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" x2="15.42" y1="13.51" y2="17.49"/><line x1="15.41" x2="8.59" y1="6.51" y2="10.49"/></svg>
+        <span>Bağlantı Analizi</span>
+      </a>
+      <a class="nav-item" data-target="card-3" href="#">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>
+        <span>Varlıklar</span>
+      </a>
+      <a class="nav-item" data-target="card-4" href="#">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg>
+        <span>Denetim Kaydı</span>
+      </a>
+    </nav>
+
+    <div class="side-foot">
+      <span class="onprem">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        <span>On-premise · Veriniz sunucudan çıkmaz</span>
+      </span>
+    </div>
+  </aside>
+
+  <!-- Mobilde sidebar açıkken arkayı karartan katman -->
+  <div class="scrim" id="scrim" hidden></div>
+
+  <!-- ===== Üst ince durum çubuğu ===== -->
+  <div class="statusbar">
+    <button class="menu-btn" id="menuBtn" aria-label="Menüyü aç/kapat">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="18" y2="18"/></svg>
+    </button>
+    <div class="sb-right">
+      <span class="pill" id="pillLlm"><span class="dot"></span>Ollama<span class="model" id="chatModel"></span></span>
+      <span class="pill hide-sm" id="pillEmbed"><span class="dot"></span>Embedding<span class="model" id="embedModel"></span></span>
+      <span class="pill" id="pillDb"><span class="dot"></span><span id="dbText">PostgreSQL</span></span>
+    </div>
+  </div>
 
   <main>
-    <!-- Panel 1: Belge Yükle -->
-    <section class="card">
-      <h2>1 · Belge Yükle</h2>
-      <p class="hint">Sunucudaki bir belge yolunu ingest et (örn. examples/documents/sozlesme_a.txt).</p>
-      <label for="uri">Belge yolu</label>
-      <input id="uri" placeholder="examples/documents/sozlesme_a.txt" />
-      <button id="ingestBtn">Yükle</button>
-      <div class="result" id="ingestResult"></div>
+    <section class="hero">
+      <span class="eyebrow">Veri sunucunuzdan çıkmaz</span>
+      <h1>Belgelerinizle konuşun,<br><span class="accent">gizli bağlantıları</span> görün.</h1>
+      <p>Kurumsal ve hukuki arşivlerinizi yükleyin; doğal dille soru sorun, cevabın
+         hangi belgeden geldiğini görün ve varlıklar arasındaki dolaylı ilişkileri
+         graf üzerinde keşfedin — tamamen yerel, KVKK uyumlu.</p>
     </section>
 
-    <!-- Panel 2: Soru Sor -->
-    <section class="card">
-      <h2>2 · Soru Sor</h2>
-      <p class="hint">Yüklenen belgelere dayanarak cevap üretilir (RAG).</p>
-      <label for="question">Soru</label>
-      <textarea id="question" placeholder="Proje Zeus kimin projesi?"></textarea>
-      <button id="askBtn">Sor</button>
-      <div class="result" id="askResult"></div>
+    <!-- Canlı istatistikler -->
+    <section class="kpis">
+      <div class="kpi"><div class="k-val" id="kpiDocs">—</div><div class="k-label">Belge</div><div class="k-sub">arşive yüklendi</div></div>
+      <div class="kpi"><div class="k-val" id="kpiChunks">—</div><div class="k-label">Metin parçası</div><div class="k-sub">chunk, indekslendi</div></div>
+      <div class="kpi"><div class="k-val" id="kpiEntities">—</div><div class="k-label">Varlık</div><div class="k-sub">graf düğümü</div></div>
+      <div class="kpi"><div class="k-val" id="kpiRelations">—</div><div class="k-label">Graf kenarı</div><div class="k-sub">ilişki bağlantısı</div></div>
     </section>
 
-    <!-- Panel 3: Bağlantı Bul -->
-    <section class="card">
-      <h2>3 · Bağlantı Bul</h2>
-      <p class="hint">İki varlık arasındaki en güvenilir zinciri graf üzerinde bulur.</p>
-      <div class="row">
-        <div>
-          <label for="source">Kaynak varlık</label>
-          <input id="source" placeholder="Acme Holding" />
-        </div>
-        <div>
-          <label for="target">Hedef varlık</label>
-          <input id="target" placeholder="Gamma Danışmanlık" />
-        </div>
+    <div class="section-label">Öne çıkan özellikler</div>
+
+    <section class="features">
+      <div class="feature">
+        <div class="f-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg></div>
+        <h3>Yerel & KVKK</h3><p>Veri sunucunuzdan çıkmaz, dış buluta gitmez.</p>
       </div>
-      <button id="connBtn">Bul</button>
-      <div class="result" id="connResult"></div>
+      <div class="feature">
+        <div class="f-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></div>
+        <h3>Hibrit arama</h3><p>Anlam (embedding) + anahtar kelime (BM25).</p>
+      </div>
+      <div class="feature">
+        <div class="f-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="6" cy="18" r="2.5"/><circle cx="18" cy="6" r="2.5"/><circle cx="18" cy="18" r="2.5"/><path d="M8 16.5 16 7.5M8.2 18h7.3"/></svg></div>
+        <h3>Graf bağlantı</h3><p>Varlıklar arası gizli ilişki zincirleri.</p>
+      </div>
+      <div class="feature">
+        <div class="f-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l2 2 4-4"/><path d="M20 12a8 8 0 1 1-8-8"/></svg></div>
+        <h3>Kaynak gösterimi</h3><p>Her cevap, dayandığı belgeyle birlikte.</p>
+      </div>
     </section>
+
+    <div class="grid">
+      <!-- 01 · Belge Yükle -->
+      <section class="card wide">
+        <div class="card-head"><span class="num">01</span><h2>Belge Yükle</h2>
+          <span class="side"><button class="ghost" id="refreshBtn">Yenile</button></span>
+        </div>
+        <p class="hint">Bilgisayarınızdan bir veya birden çok dosya sürükleyin (.txt · .pdf · .docx).</p>
+        <div class="dropzone" id="dropzone">
+          <svg class="dz-ic" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 16V4m0 0 4 4m-4-4L8 8"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg>
+          <div class="dz-title">Dosyaları buraya sürükleyin veya seçin</div>
+          <div class="dz-sub">Birden çok dosya seçebilirsiniz · .txt · .pdf · .docx</div>
+          <input type="file" id="fileInput" accept=".txt,.pdf,.docx" multiple hidden />
+        </div>
+        <ul class="doclist" id="docList"></ul>
+        <div class="empty" id="docEmpty">Henüz belge yüklenmedi.</div>
+        <div class="result" id="ingestErr"></div>
+      </section>
+
+      <!-- 02 · Soru Sor -->
+      <section class="card">
+        <div class="card-head"><span class="num">02</span><h2>Soru Sor</h2></div>
+        <p class="hint">Cevap yalnızca arşivdeki belgelere dayanır; her yanıtın altında dayandığı kaynaklar gösterilir.</p>
+        <label for="question">Soru</label>
+        <textarea id="question" placeholder="Sözleşmedeki ödeme koşulları nelerdir?"></textarea>
+        <div class="chips">
+          <span class="lbl">öneri:</span>
+          <button class="chip q-sug">Sözleşmenin tarafları kimler?</button>
+          <button class="chip q-sug">Ödeme koşulları nelerdir?</button>
+        </div>
+        <div class="btn-row">
+          <button id="askBtn"><span class="btn-label">Sor</span></button>
+          <span class="kbd">⌘/Ctrl + Enter</span>
+        </div>
+        <div class="result" id="askResult"></div>
+      </section>
+
+      <!-- 03 · Bağlantı Bul -->
+      <section class="card">
+        <div class="card-head"><span class="num">03</span><h2>Bağlantı Bul</h2></div>
+        <p class="hint">İki varlık arasındaki en güvenilir ilişki zincirini çizeriz.</p>
+        <datalist id="entityOptions"></datalist>
+        <div class="two">
+          <div><label for="source">Kaynak varlık</label><input id="source" list="entityOptions" placeholder="Örn. bir şirket adı" /></div>
+          <div><label for="target">Hedef varlık</label><input id="target" list="entityOptions" placeholder="Örn. başka bir şirket adı" /></div>
+        </div>
+        <div class="btn-row"><button id="connBtn"><span class="btn-label">Bağlantıyı Çiz</span></button></div>
+        <div class="result" id="connResult"></div>
+      </section>
+
+      <!-- 04 · Varlık Gezgini -->
+      <section class="card">
+        <div class="card-head"><span class="num">04</span><h2>Varlık Gezgini</h2>
+          <span class="side"><span class="count-badge" id="entityCount">0</span></span>
+        </div>
+        <p class="hint">Arşivden çıkarılan varlıklar. Bağlantı analizine eklemek için satıra tıklayın.</p>
+        <div class="table-wrap" id="entityWrap" hidden>
+          <table>
+            <thead><tr><th class="w-idx">#</th><th>Varlık</th><th class="w-tag">Tür</th></tr></thead>
+            <tbody id="entityBody"></tbody>
+          </table>
+        </div>
+        <div class="empty" id="entityEmpty">Belge yükleyince varlıklar burada listelenir.</div>
+      </section>
+
+      <!-- 05 · KVKK Denetim Kaydı -->
+      <section class="card">
+        <div class="card-head"><span class="num">05</span><h2>KVKK Denetim Kaydı</h2>
+          <span class="side"><span class="count-badge" id="auditCount">0</span></span>
+        </div>
+        <p class="hint">İşleme öncesi maskelenen kişisel veriler (6698 sayılı Kanun).</p>
+        <div class="table-wrap" id="auditWrap" hidden>
+          <table>
+            <thead><tr><th class="w-idx">#</th><th>Tip</th><th>Maskeleme</th><th class="w-time">Zaman</th></tr></thead>
+            <tbody id="auditBody"></tbody>
+          </table>
+        </div>
+        <div class="empty" id="auditEmpty">Henüz maskelenen kişisel veri yok.</div>
+        <div class="note">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:0 0 auto;margin-top:1px"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v4h1"/></svg>
+          <span><b>Veri minimizasyonu:</b> kayıtta yalnızca veri <em>tipi</em> ve takma ad tutulur.
+          Orijinal değer (ör. TCKN'nin kendisi) hiçbir yerde — ne indekste, ne grafta, ne bu kayıtta — saklanmaz.</span>
+        </div>
+      </section>
+    </div>
   </main>
 
-  <footer>GraphRAG · yerel arşiv zekâsı servisi</footer>
+  <footer>
+    <b>Arşiv Zekâsı</b> · yerel, KVKK-uyumlu kurumsal GraphRAG · veriniz sunucunuzdan çıkmaz
+  </footer>
+
+  <div id="toasts"></div>
 
   <script>
-    // ---- JavaScript: sayfanın DAVRANIŞI (butona basınca API'yi çağır) ----
-
-    // Küçük yardımcı: bir butona tıklanınca çalışacak akışı sarmalar
-    // (butonu kilitler, "Çalışıyor..." yazar, işi yapar, sonucu gösterir).
-    async function run(btn, resultEl, work) {
+    /* ---------- yardımcılar ---------- */
+    const $ = id => document.getElementById(id);
+    const api = async (url, opts) => {
+      const r = await fetch(url, opts);
+      if (!r.ok) throw new Error("sunucu " + r.status);
+      return r.json();
+    };
+    function toast(msg, isErr) {
+      const t = document.createElement("div");
+      t.className = "toast" + (isErr ? " err" : "");
+      t.textContent = msg;
+      $("toasts").appendChild(t);
+      setTimeout(() => { t.style.opacity = "0"; t.style.transition = "opacity .3s"; setTimeout(() => t.remove(), 300); }, 3200);
+    }
+    async function run(btn, work) {
+      const label = btn.querySelector(".btn-label");
+      const old = label ? label.textContent : btn.textContent;
       btn.disabled = true;
-      resultEl.classList.remove("ok");
-      resultEl.textContent = "Çalışıyor…";
+      if (label) label.innerHTML = '<span class="spinner"></span>'; else btn.innerHTML = '<span class="spinner"></span>';
+      try { await work(); }
+      catch (e) { toast("Hata: " + e.message, true); }
+      finally { btn.disabled = false; if (label) label.textContent = old; else btn.textContent = old; }
+    }
+    const showErr = (el, m) => { el.innerHTML = '<div class="answer err">Hata: ' + m + '</div>'; };
+
+    /* ---------- sistem durumu (GERÇEK veri, /) ---------- */
+    async function loadHealth() {
       try {
-        resultEl.textContent = await work();
-        resultEl.classList.add("ok");
-      } catch (e) {
-        resultEl.textContent = "Hata: " + e.message;
-      } finally {
-        btn.disabled = false;
+        const h = await api("/");
+        // Ollama (sohbet modeli) — gerçek erişilebilirlik
+        $("pillLlm").className = "pill " + (h.llm ? "up" : "down");
+        $("chatModel").textContent = h.chat_model || "";
+        // Embedding modeli — aynı Ollama sunucusuna bağlı
+        $("pillEmbed").className = "pill hide-sm " + (h.llm ? "up" : "down");
+        $("embedModel").textContent = h.embed_model || "";
+        // Depolama — DATABASE_URL tanımlı olsa bile gerçek bağlantı yoklanır
+        $("pillDb").className = "pill " + (h.database ? "up" : (h.persistent ? "down" : ""));
+        $("dbText").textContent = h.storage;
+      } catch (e) { /* sessiz geç */ }
+    }
+
+    /* ---------- sidebar: mobil aç/kapat + gezinme ---------- */
+    (function initSidebar() {
+      const sidebar = $("sidebar"), scrim = $("scrim");
+      const setOpen = open => { sidebar.classList.toggle("open", open); scrim.hidden = !open; };
+      $("menuBtn").addEventListener("click", () => setOpen(!sidebar.classList.contains("open")));
+      scrim.addEventListener("click", () => setOpen(false));
+
+      // Hedefleri MEVCUT yapıdan bul — ana içerik HTML'ine dokunmadan.
+      const targetOf = key => key === "kpis"
+        ? document.querySelector("main .kpis")
+        : document.querySelectorAll("main .card")[Number(key.split("-")[1])];
+
+      const items = [...document.querySelectorAll(".nav-item")];
+      items.forEach(item => item.addEventListener("click", e => {
+        e.preventDefault();
+        const el = targetOf(item.dataset.target);
+        if (el) {
+          const top = el.getBoundingClientRect().top + window.scrollY - 62; // durum çubuğu payı
+          window.scrollTo({ top, behavior: "smooth" });
+        }
+        items.forEach(i => i.classList.toggle("active", i === item));
+        if (window.innerWidth <= 900) setOpen(false);
+      }));
+
+      // Kaydırmaya göre aktif bölümü işaretle (scrollspy)
+      window.addEventListener("scroll", () => {
+        let current = items[0];
+        items.forEach(item => {
+          const el = targetOf(item.dataset.target);
+          if (el && el.getBoundingClientRect().top <= 120) current = item;
+        });
+        items.forEach(i => i.classList.toggle("active", i === current));
+      }, { passive: true });
+    })();
+
+    /* ---------- istatistikler ---------- */
+    async function loadStats() {
+      try {
+        const s = await api("/stats");
+        $("kpiDocs").textContent = s.documents;
+        $("kpiChunks").textContent = s.chunks;
+        $("kpiEntities").textContent = s.entities;
+        $("kpiRelations").textContent = s.relations;
+        // Maskeleme sayacı, KVKK Denetim Kaydı bölümünün başlığında gösterilir
+        $("auditCount").textContent = s.pii_masked;
+      } catch (e) { /* sessiz geç */ }
+    }
+
+    /* ---------- belgeler ---------- */
+    function renderDocs(docs) {
+      const list = $("docList"); list.innerHTML = "";
+      $("docEmpty").hidden = docs.length > 0;
+      docs.forEach(d => {
+        const li = document.createElement("li");
+        li.className = "doc";
+        li.innerHTML = '<span class="dot"></span><span class="name"></span><span class="tag">' + d.state + '</span>';
+        li.querySelector(".name").textContent = d.name;
+        list.appendChild(li);
+      });
+    }
+    async function loadDocs() {
+      try { renderDocs((await api("/documents")).documents); } catch (e) {}
+    }
+
+    /* ---------- varlıklar (tablo düzeni) ---------- */
+    async function loadEntities() {
+      try {
+        const names = (await api("/entities")).entities;
+        $("entityCount").textContent = names.length;
+        $("entityWrap").hidden = names.length === 0;
+        $("entityEmpty").hidden = names.length > 0;
+
+        const body = $("entityBody"); body.innerHTML = "";
+        const dl = $("entityOptions"); dl.innerHTML = "";
+
+        names.forEach((n, i) => {
+          // KVKK maskelemesinden gelen takma adlar ([TCKN_1] gibi) ayrı işaretlenir
+          const maskeli = /^\[[A-Z]+_\d+\]$/.test(n);
+          const tr = document.createElement("tr");
+          tr.className = "clickable";
+          tr.title = "Bağlantı analizine ekle";
+          tr.innerHTML =
+            '<td class="t-idx"></td><td class="mono"></td>' +
+            '<td><span class="badge' + (maskeli ? " masked" : "") + '"></span></td>';
+          tr.children[0].textContent = i + 1;
+          tr.children[1].textContent = n;
+          tr.children[2].firstChild.textContent = maskeli ? "Maskelenmiş" : "Varlık";
+
+          tr.addEventListener("click", () => {
+            const src = $("source");
+            if (!src.value.trim()) { src.value = n; toast("Kaynak: " + n); }
+            else { $("target").value = n; toast("Hedef: " + n); }
+          });
+          body.appendChild(tr);
+
+          const o = document.createElement("option"); o.value = n; dl.appendChild(o);
+        });
+      } catch (e) {}
+    }
+
+    /* ---------- KVKK denetim ---------- */
+    async function loadAudit() {
+      try {
+        const events = (await api("/audit")).events;
+        $("auditWrap").hidden = events.length === 0;
+        $("auditEmpty").hidden = events.length > 0;
+        const body = $("auditBody"); body.innerHTML = "";
+        // Kaynak değerin nasıl görüneceği (yalnızca TİP bilgisinden üretilir —
+        // orijinal veri saklanmadığı için gerçek değer gösterilemez).
+        const kaynakEtiketi = {
+          TCKN: "TCKN değeri", VKN: "VKN değeri", IBAN: "IBAN değeri",
+          PHONE: "Telefon no", EMAIL: "E-posta adresi", PERSON: "Kişi adı",
+        };
+        events.slice(0, 12).forEach((e, i) => {
+          const tr = document.createElement("tr");
+          const t = (e.timestamp || "").replace("T", " ").slice(0, 19);
+          tr.innerHTML =
+            '<td class="t-idx"></td>' +
+            '<td><span class="badge masked"></span></td>' +
+            '<td><span class="mask-map">' +
+              '<span class="mask-src"></span>' +
+              '<span class="mask-arrow">→</span>' +
+              '<span class="mask-dst"></span>' +
+            '</span></td>' +
+            '<td class="t-time"></td>';
+          tr.children[0].textContent = i + 1;
+          tr.children[1].firstChild.textContent = e.pii_type;
+          const map = tr.children[2].firstChild;
+          map.children[0].textContent = kaynakEtiketi[e.pii_type] || "Kişisel veri";
+          map.children[2].textContent = e.placeholder;
+          tr.children[3].textContent = t;
+          body.appendChild(tr);
+        });
+      } catch (e) {}
+    }
+
+    const refreshAll = () => Promise.all([loadStats(), loadDocs(), loadEntities(), loadAudit()]);
+
+    /* ---------- yükleme ---------- */
+    const dz = $("dropzone"), fileInput = $("fileInput");
+    dz.addEventListener("click", () => fileInput.click());
+    dz.addEventListener("dragover", e => { e.preventDefault(); dz.classList.add("over"); });
+    dz.addEventListener("dragleave", () => dz.classList.remove("over"));
+    dz.addEventListener("drop", e => { e.preventDefault(); dz.classList.remove("over"); if (e.dataTransfer.files.length) uploadFiles(e.dataTransfer.files); });
+    fileInput.addEventListener("change", () => { if (fileInput.files.length) uploadFiles(fileInput.files); });
+
+    async function uploadFiles(files) {
+      const errEl = $("ingestErr"); errEl.innerHTML = "";
+      const title = dz.querySelector(".dz-title"); const orig = title.textContent;
+      title.textContent = files.length + " dosya yükleniyor…";
+      try {
+        const fd = new FormData();
+        [...files].forEach(f => fd.append("files", f));
+        const data = await api("/upload", { method: "POST", body: fd });
+        toast(data.documents.length + " belge arşive eklendi");
+        await refreshAll();
+      } catch (e) { showErr(errEl, e.message); toast("Yükleme başarısız", true); }
+      finally { title.textContent = orig; fileInput.value = ""; }
+    }
+
+    $("refreshBtn").addEventListener("click", () => run($("refreshBtn"), refreshAll));
+
+    /* ---------- soru sor ---------- */
+    document.querySelectorAll(".q-sug").forEach(c =>
+      c.addEventListener("click", () => { $("question").value = c.textContent; $("question").focus(); }));
+
+    $("question").addEventListener("keydown", e => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "Enter") $("askBtn").click();
+    });
+
+    // Yükleniyor iskeleti (skeleton) — cevap beklenirken gösterilir
+    function askSkeleton(out) {
+      out.innerHTML =
+        '<div class="skeleton">' +
+          '<div class="sk-line"></div><div class="sk-line w70"></div><div class="sk-line w45"></div>' +
+          '<div class="sk-note">' +
+            '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>' +
+            'Arşiv taranıyor ve cevap üretiliyor…' +
+          '</div>' +
+        '</div>';
+    }
+
+    $("askBtn").addEventListener("click", () => run($("askBtn"), async () => {
+      const out = $("askResult");
+      const question = $("question").value.trim();
+      if (!question) { toast("Önce bir soru yazın", true); return; }
+      askSkeleton(out);
+      try {
+        const data = await api("/ask", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ question }) });
+        const sources = data.sources || [];
+        out.innerHTML = "";
+
+        // 1) Dayanak rozeti: cevabın belgeye dayanıp dayanmadığını açıkça söyler
+        const badge = document.createElement("div");
+        badge.className = "grounded" + (sources.length ? "" : " none");
+        badge.innerHTML = sources.length
+          ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>'
+          : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 9v4"/><path d="M12 17h.01"/><circle cx="12" cy="12" r="9"/></svg>';
+        // Kaynak yoksa: arşiv gerçekten boş mu, yoksa eşleşme mi yok? — ayırt et
+        const arsivBos = $("kpiChunks").textContent === "0";
+        badge.appendChild(document.createTextNode(
+          sources.length
+            ? sources.length + " belge kaynağına dayanıyor"
+            : (arsivBos ? "Arşiv boş — önce 01 Belge Yükle bölümünden belge ekleyin"
+                        : "Arşivde eşleşen kaynak bulunamadı")));
+        out.appendChild(badge);
+
+        // 2) Cevap
+        const ans = document.createElement("div");
+        ans.className = "answer" + (sources.length ? " cited" : "");
+        ans.textContent = data.answer;
+        out.appendChild(ans);
+
+        // 3) Kaynak kartları: numara + belge adı (mono) + snippet
+        if (sources.length) {
+          const wrap = document.createElement("div"); wrap.className = "sources";
+          const h = document.createElement("div"); h.className = "src-head";
+          h.appendChild(document.createTextNode("Kaynaklar"));
+          const cnt = document.createElement("span"); cnt.className = "src-count";
+          cnt.textContent = sources.length; h.appendChild(cnt);
+          wrap.appendChild(h);
+
+          sources.forEach((s, i) => {
+            const d = document.createElement("div"); d.className = "src";
+            const top = document.createElement("div"); top.className = "src-top";
+            const idx = document.createElement("span"); idx.className = "src-idx"; idx.textContent = i + 1;
+            const dn = document.createElement("span"); dn.className = "src-doc";
+            dn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg>';
+            dn.appendChild(document.createTextNode(s.document_name || "belge"));
+            top.appendChild(idx); top.appendChild(dn);
+
+            const tx = document.createElement("div"); tx.className = "src-text";
+            tx.textContent = s.text.length > 220 ? s.text.slice(0, 220) + "…" : s.text;
+            d.appendChild(top); d.appendChild(tx); wrap.appendChild(d);
+          });
+          out.appendChild(wrap);
+        }
+
+        // 4) Kopyala
+        const row = document.createElement("div"); row.className = "btn-row";
+        const copy = document.createElement("button"); copy.className = "ghost"; copy.textContent = "Cevabı kopyala";
+        copy.addEventListener("click", async () => { await navigator.clipboard.writeText(data.answer); toast("Kopyalandı"); });
+        row.appendChild(copy); out.appendChild(row);
+      } catch (e) { showErr(out, e.message); }
+    }));
+
+    /* ---------- bağlantı bul ---------- */
+    $("connBtn").addEventListener("click", () => run($("connBtn"), async () => {
+      const out = $("connResult");
+      const source = $("source").value.trim(), target = $("target").value.trim();
+      if (!source || !target) { toast("Kaynak ve hedef varlık gerekli", true); return; }
+      try {
+        const url = "/connection?source=" + encodeURIComponent(source) + "&target=" + encodeURIComponent(target);
+        renderConnection(out, (await api(url)).result);
+      } catch (e) { showErr(out, e.message); }
+    }));
+
+    function renderConnection(out, text) {
+      if (!text.includes("->")) {                 // "bağlantı bulunamadı" durumu
+        out.innerHTML = '<div class="answer"></div>';
+        out.querySelector(".answer").textContent = text;
+        return;
+      }
+      // "Bağlantı bulundu: A -> B -> C  (güven: 0.25)" biçimini ayrıştır.
+      // İlk ':' sonrası zincir, sondaki parantez içi güven skoru.
+      const zincir = text.slice(text.indexOf(":") + 1).replace(/\(.*\)\s*$/, "");
+      const nodes = zincir.split("->").map(s => s.trim()).filter(Boolean);
+      const conf = (text.match(/güven:\s*([0-9.]+)/) || [])[1];
+
+      const graph = document.createElement("div"); graph.className = "graph";
+      const chain = document.createElement("div"); chain.className = "chain";
+
+      nodes.forEach((name, i) => {
+        const node = document.createElement("div");
+        // Uç düğümler (ilk ve son) amber; aradakiler teal
+        node.className = "node" + (i === 0 || i === nodes.length - 1 ? " end" : "");
+        node.style.animationDelay = (i * 0.07) + "s";
+        node.title = name;                        // uzun adlar kısaltılırsa tam adı göster
+        const pin = document.createElement("span"); pin.className = "pin";
+        const nm = document.createElement("span"); nm.className = "nm"; nm.textContent = name;
+        node.appendChild(pin); node.appendChild(nm);
+        chain.appendChild(node);
+
+        // Ok YALNIZCA iki düğüm arasına konur — son düğümden sonra ok çıkmaz.
+        if (i < nodes.length - 1) {
+          const edge = document.createElement("div"); edge.className = "edge";
+          edge.innerHTML =
+            '<svg viewBox="0 0 38 12" fill="none" aria-hidden="true">' +
+              '<path d="M1 6 H30" stroke="currentColor" stroke-width="1.6"/>' +
+              '<path d="M29 2 L34 6 L29 10" stroke="currentColor" stroke-width="1.6" ' +
+                'fill="none" stroke-linecap="round" stroke-linejoin="round"/>' +
+            '</svg>';
+          chain.appendChild(edge);
+        }
+      });
+
+      graph.appendChild(chain);
+      out.innerHTML = ""; out.appendChild(graph);
+
+      if (conf) {
+        const row = document.createElement("div"); row.className = "conf-row";
+        const badge = document.createElement("div"); badge.className = "conf-badge";
+        const lbl = document.createElement("span"); lbl.className = "lbl";
+        lbl.textContent = "Birleşik güven skoru";
+        const val = document.createElement("span"); val.className = "val"; val.textContent = conf;
+        const sep = document.createElement("span"); sep.className = "sep";
+        const hops = document.createElement("span"); hops.className = "hops";
+        hops.textContent = (nodes.length - 1) + " adım";
+        badge.appendChild(lbl); badge.appendChild(val);
+        badge.appendChild(sep); badge.appendChild(hops);
+
+        const note = document.createElement("div"); note.className = "conf-note";
+        note.textContent = "Her adımın güveni çarpılır; zincir uzadıkça skorun düşmesi normaldir.";
+        row.appendChild(badge); row.appendChild(note);
+        out.appendChild(row);
       }
     }
 
-    // Panel 1 — POST /documents
-    const ingestBtn = document.getElementById("ingestBtn");
-    ingestBtn.addEventListener("click", () => {
-      const uri = document.getElementById("uri").value.trim();
-      run(ingestBtn, document.getElementById("ingestResult"), async () => {
-        const r = await fetch("/documents", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ uri }),
-        });
-        if (!r.ok) throw new Error("sunucu " + r.status);
-        const data = await r.json();
-        return "Durum: " + data.state + "\nBelge kimliği: " + data.document_id;
-      });
-    });
-
-    // Panel 2 — POST /ask
-    const askBtn = document.getElementById("askBtn");
-    askBtn.addEventListener("click", () => {
-      const question = document.getElementById("question").value.trim();
-      run(askBtn, document.getElementById("askResult"), async () => {
-        const r = await fetch("/ask", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ question }),
-        });
-        if (!r.ok) throw new Error("sunucu " + r.status);
-        return (await r.json()).answer;
-      });
-    });
-
-    // Panel 3 — GET /connection?source=...&target=...
-    const connBtn = document.getElementById("connBtn");
-    connBtn.addEventListener("click", () => {
-      const source = document.getElementById("source").value.trim();
-      const target = document.getElementById("target").value.trim();
-      run(connBtn, document.getElementById("connResult"), async () => {
-        const url = "/connection?source=" + encodeURIComponent(source) +
-                    "&target=" + encodeURIComponent(target);
-        const r = await fetch(url);
-        if (!r.ok) throw new Error("sunucu " + r.status);
-        return (await r.json()).result;
-      });
-    });
+    /* ---------- başlangıç ---------- */
+    loadHealth(); refreshAll();
+    setInterval(loadHealth, 20000);
   </script>
 </body>
 </html>
