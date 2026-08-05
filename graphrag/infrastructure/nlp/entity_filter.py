@@ -18,12 +18,13 @@ import re
 from typing import List
 
 from graphrag.domain.interfaces import IEntityExtractor
-from graphrag.domain.text_tr import turkish_lower
+from graphrag.domain.text_tr import _KATLAMA, turkish_lower
 
 # --- Biçimsel reddetme desenleri ---------------------------------------------
 
 # KVKK maskeleme takma adları: [TCKN_1], [EMAIL_2] ...
-_RE_PLACEHOLDER = re.compile(r"^\[[A-Z]+_\d+\]$")
+# Köşeli parantezli ya da parantezsiz olabilir: "[TCKN_1]" veya "VKN_2"
+_RE_PLACEHOLDER = re.compile(r"^\[?[A-Z]+_\d+\]?$")
 # TCKN benzeri: 11 hane
 _RE_TCKN = re.compile(r"^\d{11}$")
 # IBAN: TR + rakam/boşluk dizisi
@@ -59,10 +60,25 @@ _GENEL_SON = ("analizi", "planı", "modeli", "takvimi", "raporu", "departmanı",
 # "Genel Müdürlük", "Sayın İlgili", "Tüm Birimler" ...
 _GENEL_ON = ("genel", "sayın", "ilgili", "değerli", "tüm", "ilgili makam")
 
+# Ülke / coğrafya adları — kurumsal arşiv analizinde varlık sayılmaz.
+_COGRAFYA = ("türkiye", "turkiye", "türkiye cumhuriyeti", "istanbul",
+             "ankara", "izmir", "avrupa", "asya", "amerika", "almanya",
+             "ingiltere", "fransa", "türk", "t.c.", "tc")
+
 # Kimlik/numara alanlarını bildiren terimler — bunlar PII katmanının işidir,
 # grafta varlık olmamalıdır.
 _KIMLIK_TERIMLERI = ("tckn", "vkn", "iban", "kimlik", "vergi", "sicil",
                      "numarası", "numara", "no", "nolu")
+
+# Tek başına geçtiğinde varlık sayılmayan genel adlar
+# ("Proje Zeus" geçerli; yalnız "Proje" değil).
+_GENEL_TEKIL = ("müşteri", "musteri", "taraf", "taraflar", "şirket",
+                "firma", "kurum", "sözleşme", "belge", "rapor", "proje",
+                "yüklenici", "tedarikçi", "personel", "çalışan", "birim")
+
+# Karşılaştırmalar katlanmış biçimde yapılır ("TÜRKİYE" = "TURKIYE")
+_COGRAFYA_KATLI = {c.translate(_KATLAMA) for c in _COGRAFYA}
+_GENEL_TEKIL_KATLI = {g.translate(_KATLAMA) for g in _GENEL_TEKIL}
 
 # Bir varlık adı bu kadar kelimeden uzunsa büyük olasılıkla cümle/başlıktır.
 _AZAMI_KELIME = 5
@@ -70,7 +86,7 @@ _AZAMI_KELIME = 5
 
 def _reddedilmeli(name: str) -> bool:
     """Verilen aday gerçek bir adlandırılmış varlık DEĞİL mi?"""
-    ad = name.strip().strip(",;:.")
+    ad = name.strip().strip(",;:.").strip('"\'«»')
     if len(ad) < 2:
         return True
 
@@ -96,11 +112,17 @@ def _reddedilmeli(name: str) -> bool:
         return True
     if kelimeler[0] in _HITAP or kelimeler[0] in _GENEL_ON:
         return True
+    # Ülke/şehir adları (katlanmış karşılaştırma: 'TÜRKİYE' = 'TURKIYE')
+    if kucuk.translate(_KATLAMA) in _COGRAFYA_KATLI:
+        return True
     if any(k in _ADRES for k in kelimeler):
         return True
     if any(k in _AYLAR for k in kelimeler):
         return True
     if kelimeler[-1] in _GENEL_SON:
+        return True
+    # Tek kelimelik genel ad ("Müşteri", "Taraflar")
+    if len(kelimeler) == 1 and kucuk.translate(_KATLAMA) in _GENEL_TEKIL_KATLI:
         return True
 
     # Harf içermeyen adaylar (ör. "2024-11") varlık olamaz.

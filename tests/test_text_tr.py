@@ -5,6 +5,7 @@ from graphrag.domain.text_tr import (
     canonical_entity_key,
     canonical_key,
     display_label,
+    locate_in_source,
     prefer_label,
     strip_company_suffix,
     turkish_lower,
@@ -73,3 +74,27 @@ def test_turkce_klavyesiz_yazim_ayni_anahtara_iner():
     # Kullanıcı "Gamma Danismanlik" yazsa da doğru varlığı bulmalı
     assert (canonical_entity_key("Gamma Danismanlik")
             == canonical_entity_key("Gamma Danışmanlık"))
+
+
+# ------------------------------------------------ kaynağa sabitleme / temellendirme
+
+_BELGE = "Taraflar ACME HOLDİNG A.Ş. ile GAMMA DANIŞMANLIK arasında anlaştı."
+
+
+def test_ad_belgedeki_yazima_sabitlenir():
+    # LLM "İ"yi "I" olarak döndürse bile belgedeki yazım kullanılır
+    assert locate_in_source("ACME HOLDING", _BELGE) == "ACME HOLDİNG"
+
+
+def test_farkli_buyuk_kucuk_yazim_da_bulunur():
+    assert locate_in_source("Gamma Danışmanlık", _BELGE) == "GAMMA DANIŞMANLIK"
+
+
+def test_belgede_gecmeyen_ad_none_doner():
+    # LLM uydurması (belgede karşılığı yok) → grafa alınmamalı
+    assert locate_in_source("Delta Lojistik", _BELGE) is None
+
+
+def test_llm_kopyalama_gurultusu_belgedeki_yazima_duzeltilir():
+    # Yerel LLM Türkçe metni bozuk kopyalayabiliyor; yakın eşleşme düzeltir
+    assert locate_in_source("ACME HOLDİNİNG A.Ş.", _BELGE) == "ACME HOLDİNG A.Ş."

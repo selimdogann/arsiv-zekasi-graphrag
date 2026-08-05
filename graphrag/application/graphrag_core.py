@@ -9,6 +9,7 @@ from graphrag.domain.text_tr import (
     canonical_entity_key,
     display_label,
     prefer_label,
+    locate_in_source,
 )
 
 import math
@@ -72,10 +73,16 @@ class GraphRAGCore:
         entity_names = self._extractor.extract(document.raw_text)
         node_ids = []
         for name in entity_names:
+            # TEMELLENDİRME: belgede geçmeyen ad, LLM'in uydurmasıdır —
+            # grafa alınmaz. Bulunursa belgedeki yazım kullanılır (İ/ı
+            # bozulmasını da önler).
+            kaynak_yazim = locate_in_source(name, document.raw_text)
+            if kaynak_yazim is None:
+                continue
             # Şirket eki temizlenmiş kimlik: "ACME HOLDİNG A.Ş." ile
             # "Acme Holding" tek düğümde birleşir.
-            node_id = canonical_entity_key(name)
-            label = display_label(name)
+            node_id = canonical_entity_key(kaynak_yazim)
+            label = display_label(kaynak_yazim)
             try:
                 # Aynı varlık daha önce görüldüyse, gösterime uygun etiketi koru.
                 label = prefer_label(self._graph.get_node(node_id).label, label)
