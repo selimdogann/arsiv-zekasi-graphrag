@@ -59,15 +59,17 @@ def _core_kur():
     llm = _KaydedenSahteLLM()
     vectors = InMemoryVectorStore()
     graph = InMemoryGraphStore()
+    audit_log = InMemoryAuditLog()
     core = GraphRAGCore(
         loader=loader,
         llm=llm,
         vectors=vectors,
         graph=graph,
         extractor=SimpleEntityExtractor(),
-        privacy=KvkkPiiRedactor(InMemoryAuditLog()),
+        privacy=KvkkPiiRedactor(audit_log),
         chunker=SlidingWindowChunker(),
         keyword_index=InMemoryKeywordIndex(),
+        audit_log=audit_log,
     )
     return core, loader, llm, vectors, graph
 
@@ -143,3 +145,54 @@ def test_find_connection_baglanti_yoksa_bilgilendirir():
     core.ingest("a")
     sonuc = core.find_connection("Acme Holding", "Gamma Danışmanlık")
     assert "bulunamadı" in sonuc
+
+
+# ---------------------------------------------------------- sorgu/rapor API'si
+
+def test_answer_with_sources_kaynak_dondurur():
+    core, loader, _llm, _vec, _graph = _core_kur()
+    loader.texts["a"] = "Proje Zeus, Acme Holding tarafından yürütülmektedir."
+    doc = core.ingest("a")
+
+    sonuc = core.answer_with_sources("Proje Zeus nedir?")
+
+    assert sonuc["sources"], "cevap en az bir kaynağa dayanmalı"
+    assert sonuc["sources"][0]["document_id"] == doc.document_id
+    assert "Proje Zeus" in sonuc["sources"][0]["text"]
+
+
+def test_stats_arsiv_ozetini_verir():
+    core, loader, _llm, _vec, _graph = _core_kur()
+    loader.texts["a"] = "Acme Holding, Proje Zeus için Beta Firması ile anlaştı."
+    core.ingest("a")
+
+    s = core.stats()
+
+    assert s["chunks"] >= 1
+    assert s["entities"] >= 3       # Acme Holding, Proje Zeus, Beta Firması
+    assert s["relations"] >= 6      # 3 varlık -> 3 çift -> çift yönlü 6 kenar
+
+
+def test_entities_varlik_adlarini_alfabetik_verir():
+    core, loader, _llm, _vec, _graph = _core_kur()
+    loader.texts["a"] = "Acme Holding, Proje Zeus için Beta Firması ile anlaştı."
+    core.ingest("a")
+
+    isimler = core.entities()
+
+    assert "Acme Holding" in isimler
+    assert isimler == sorted(isimler)
+
+
+def test_audit_events_maskelemeyi_raporlar():
+    core, loader, _llm, _vec, _graph = _core_kur()
+    loader.texts["gizli"] = "Müşteri TCKN 10000000146 olarak kayıtlıdır."
+    core.ingest("gizli")
+
+    olaylar = core.audit_events()
+
+    assert olaylar, "maskeleme denetim kaydına yazılmalı"
+    assert olaylar[0]["pii_type"] == "TCKN"
+    assert olaylar[0]["placeholder"] == "[TCKN_1]"
+    # Veri minimizasyonu: ham TCKN denetim kaydında ASLA görünmemeli
+    assert all("10000000146" not in str(o) for o in olaylar)

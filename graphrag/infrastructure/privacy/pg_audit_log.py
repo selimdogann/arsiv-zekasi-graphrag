@@ -7,11 +7,13 @@ veri, hangi placeholder ile, ne zaman maskelendi" saklanır.
 """
 from __future__ import annotations
 
-from sqlalchemy import Engine
+from typing import List
+
+from sqlalchemy import Engine, select
 from sqlalchemy.orm import Session
 
 from graphrag.domain.interfaces import IAuditLog
-from graphrag.domain.privacy import AuditEvent
+from graphrag.domain.privacy import AuditEvent, PIIType
 from graphrag.infrastructure.db.models import AuditEventRow
 
 
@@ -28,3 +30,13 @@ class PostgresAuditLog(IAuditLog):
                 timestamp=event.timestamp,
             ))
             session.commit()
+
+    def events(self) -> List[AuditEvent]:
+        with Session(self._engine) as session:
+            rows = session.execute(
+                select(AuditEventRow).order_by(AuditEventRow.id)).scalars().all()
+            return [
+                AuditEvent(action=r.action, pii_type=PIIType(r.pii_type),
+                           placeholder=r.placeholder, timestamp=r.timestamp)
+                for r in rows
+            ]

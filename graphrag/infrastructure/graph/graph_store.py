@@ -31,3 +31,9 @@ class InMemoryGraphStore(IGraphStore):
     
     def get_node(self, node_id: str) -> GraphNode:
         return self._nodes[node_id]
+
+    def all_nodes(self) -> List[GraphNode]:
+        return list(self._nodes.values())
+
+    def edge_count(self) -> int:
+        return sum(len(edges) for edges in self._adjacency.values())
