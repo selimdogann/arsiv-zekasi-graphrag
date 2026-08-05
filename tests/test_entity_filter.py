@@ -88,3 +88,19 @@ def test_kimlik_numarasi_alanlari_elenir():
 
 def test_genel_birim_ekleri_elenir():
     assert _suz(["İş Geliştirme Birimi", "Proje Ekibi", "Acme Holding"]) == ["Acme Holding"]
+
+
+def test_parantezsiz_kvkk_takma_adlari_da_elenir():
+    # LLM takma adı köşeli parantezsiz döndürebiliyor
+    assert _suz(["VKN_2", "TCKN_1", "IBAN_3", "Proje Zeus"]) == ["Proje Zeus"]
+
+
+def test_ulke_ve_cografya_adlari_elenir():
+    adlar = ["Türkiye", "TÜRKİYE", "İstanbul", "Ankara", "Acme Holding"]
+    assert _suz(adlar) == ["Acme Holding"]
+
+
+def test_tek_kelimelik_genel_adlar_elenir():
+    # "Proje Zeus" geçerli bir varlık; yalnız "Proje"/"Müşteri" değil
+    adlar = ['"Müşteri"', "MUSTERI", "Taraflar", "Şirket", "Proje Zeus"]
+    assert _suz(adlar) == ["Proje Zeus"]
