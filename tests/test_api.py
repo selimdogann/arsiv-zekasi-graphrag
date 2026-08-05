@@ -21,11 +21,23 @@ class _SahteCore:
     def ingest(self, uri):
         return _SahteDoc()
 
-    def answer(self, question):
-        return f"cevap: {question}"
+    def answer_with_sources(self, question):
+        return {"answer": f"cevap: {question}",
+                "sources": [{"chunk_id": "doc-1#0", "document_id": "doc-1",
+                             "text": "kaynak metni"}]}
 
     def find_connection(self, source, target):
         return f"{source} -> {target}"
+
+    def stats(self):
+        return {"chunks": 3, "entities": 4, "relations": 8, "pii_masked": 1}
+
+    def entities(self):
+        return ["Acme Holding", "Proje Zeus"]
+
+    def audit_events(self):
+        return [{"action": "REDACT", "pii_type": "TCKN",
+                 "placeholder": "[TCKN_1]", "timestamp": "2026-01-01T00:00:00"}]
 
 
 # get_core bağımlılığını sahte çekirdekle değiştir → gerçek Ollama'ya gidilmez.
@@ -33,22 +45,35 @@ app.dependency_overrides[get_core] = lambda: _SahteCore()
 client = TestClient(app)
 
 
-def test_health_ok_doner():
+def test_health_servis_ve_depolama_durumu_doner():
     r = client.get("/")
     assert r.status_code == 200
-    assert r.json() == {"status": "ok"}
+    body = r.json()
+    assert body["status"] == "ok"
+    assert "llm" in body and "storage" in body
 
 
 def test_documents_ingest_cagirir():
     r = client.post("/documents", json={"uri": "herhangi/yol.txt"})
     assert r.status_code == 200
-    assert r.json() == {"document_id": "doc-1", "state": "PARSED"}
+    assert r.json()["document_id"] == "doc-1"
+    assert r.json()["state"] == "PARSED"
 
 
-def test_ask_soruyu_cekirdege_gecirir():
+def test_documents_listesi_yuklenenleri_doner():
+    client.post("/documents", json={"uri": "klasor/belge.txt"})
+    r = client.get("/documents")
+    assert r.status_code == 200
+    assert any(d["name"] == "belge.txt" for d in r.json()["documents"])
+
+
+def test_ask_cevabi_ve_kaynaklari_doner():
     r = client.post("/ask", json={"question": "merhaba"})
     assert r.status_code == 200
-    assert r.json() == {"answer": "cevap: merhaba"}
+    body = r.json()
+    assert body["answer"] == "cevap: merhaba"
+    assert body["sources"][0]["text"] == "kaynak metni"
+    assert "document_name" in body["sources"][0]   # kaynak adı zenginleştirildi
 
 
 def test_ask_eksik_alan_422_doner():
@@ -63,8 +88,29 @@ def test_connection_kaynak_ve_hedefi_gecirir():
     assert r.json() == {"result": "A -> B"}
 
 
+def test_stats_ozet_doner():
+    r = client.get("/stats")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["entities"] == 4
+    assert "documents" in body
+
+
+def test_entities_varlik_listesi_doner():
+    r = client.get("/entities")
+    assert r.status_code == 200
+    assert "Proje Zeus" in r.json()["entities"]
+
+
+def test_audit_kvkk_kaydini_doner():
+    r = client.get("/audit")
+    assert r.status_code == 200
+    olay = r.json()["events"][0]
+    assert olay["pii_type"] == "TCKN"
+    assert olay["placeholder"] == "[TCKN_1]"
+
+
 def test_web_arayuzu_sunuluyor():
-    # /app/ statik arayüz sayfasını (HTML) döndürmeli.
     r = client.get("/app/")
     assert r.status_code == 200
     assert "Arşiv Zekâsı" in r.text
