@@ -6,6 +6,8 @@ belgelerdeki varlıklar arasındaki **gizli bağlantıları** keşfedebilirsiniz
 
 Yapay zekâ yerelde (Ollama) çalışır; **hiçbir veri buluta gönderilmez.**
 
+![Arayüz](docs/gorseller/arayuz.png)
+
 ---
 
 ## Çözdüğü problem
@@ -71,11 +73,11 @@ pip install -r requirements.txt
 ollama pull qwen2.5:7b             # cevap üretimi
 ollama pull bge-m3                 # metin → vektör
 
-# 4) Başlatın
-./scripts/baslat.sh
+# 4) Başlatın  (Windows/macOS/Linux)
+python3 scripts/baslat.py
 ```
 
-`baslat.sh` her şeyi sırayla açar (Ollama → veritabanı → sunucu), modelleri
+`baslat.py` her şeyi sırayla açar (Ollama → veritabanı → sunucu), modelleri
 önden ısıtır ve sonunda arayüz adresini + API anahtarını yazdırır.
 
 > **Docker kurmadıysanız** sorun değil — sistem otomatik olarak bellek-içi
@@ -98,7 +100,7 @@ Tarayıcıda: **http://localhost:8000/app/**
 4. **KVKK denetim kaydını inceleyin** — belgelerdeki TCKN/IBAN/VKN değerlerinin
    nasıl maskelendiğini gösterir.
 
-İlk açılışta arayüz sağ üstten **API anahtarı** ister; `baslat.sh` çıktısındaki
+İlk açılışta arayüz sağ üstten **API anahtarı** ister; `baslat.py` çıktısındaki
 anahtarı yapıştırmanız yeterli (tarayıcı hatırlar).
 
 ---
@@ -203,6 +205,23 @@ M4 / 16 GB üzerinde ölçülen değerler:
 | Graf bağlantı bulma | **0.02 sn** (yapay zekâ kullanmaz) |
 | Soru-cevap | 5.5 – 7.5 sn (yerel model üretimi) |
 | Tekrarlanan soru | 0.015 sn (önbellek) |
+
+---
+
+## Bilinen sınırlar ve gelecek çalışmalar
+
+Aşağıdakiler bilinçli kapsam kararlarıdır; sistemin bugünkü hâlinin sınırlarını
+açıkça ortaya koyar.
+
+| Sınır | Bugünkü durum | Yapılabilecek |
+|---|---|---|
+| **İlişki tipleri** | Graf kenarları yalnızca "aynı belgede birlikte geçti" bilgisini taşır | İlişki türünü de çıkarmak (`imzaladı`, `danışmanlık verdi`) — tipli graf |
+| **Ölçek** | 5 belgelik bir gösterim; büyük arşivle denenmedi | pgvector indeksleme (HNSW) + asenkron yükleme kuyruğu |
+| **Retrieval hassasiyeti** | Hibrit arama var, yeniden sıralayıcı (reranker) yok | Cross-encoder reranker — çok adaylı aramada isabeti artırır |
+| **Aktarım güvenliği** | API anahtarı HTTP üzerinden düz metin gider | Ters proxy arkasında HTTPS |
+| **Yetkilendirme** | Tek anahtar; "kim ne yaptı" izlenmiyor | Kullanıcı bazlı giriş + rol tabanlı yetki (KVKK denetimi için değerli) |
+| **Varlık çıkarımı** | Yerel model Türkçe metni bazen bozuk kopyalıyor | Türkçe'ye özel NER modeli; şu an belgeye sabitleme (grounding) ile tolere ediliyor |
+| **Belge formatları** | `.txt`, `.pdf`, `.docx` | Taranmış belgeler için OCR |
 
 ---
 
