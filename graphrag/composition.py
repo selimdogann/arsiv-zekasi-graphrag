@@ -23,6 +23,7 @@ from graphrag.infrastructure.llm.cached_llm import CachedLanguageModel
 from graphrag.infrastructure.llm.ollama_llm import OllamaLanguageModel
 from graphrag.infrastructure.nlp.entity_filter import FilteredEntityExtractor
 from graphrag.infrastructure.nlp.llm_entity_extractor import LlmEntityExtractor
+from graphrag.infrastructure.nlp.llm_relation_extractor import LlmRelationExtractor
 from graphrag.infrastructure.privacy.audit_log import InMemoryAuditLog
 from graphrag.infrastructure.privacy.kvkk_redactor import KvkkPiiRedactor
 from graphrag.infrastructure.vector.vector_store import InMemoryVectorStore
@@ -80,4 +81,5 @@ def build_core() -> GraphRAGCore:
         keyword_index=keyword_index,
         audit_log=audit_log,
         catalog=catalog,
+        relation_extractor=LlmRelationExtractor(llm),
     )

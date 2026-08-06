@@ -22,6 +22,8 @@ class GraphSearchEngine:
     def shortest_path(self, source_id: str, target_id: str) -> GraphPath:
         dist: Dict[str, float] = {source_id: 0.0}
         prev: Dict[str, str] = {}
+        # Hangi kenardan gelindiği — yolun ilişki etiketlerini üretmek için
+        prev_edge: Dict[str, str] = {}
         heap = [(0.0, source_id)]
 
         while heap:
@@ -36,16 +38,21 @@ class GraphSearchEngine:
                 if nd < dist.get(edge.target_id, float("inf")):
                     dist[edge.target_id] = nd
                     prev[edge.target_id] = u
+                    prev_edge[edge.target_id] = edge.relation
                     heapq.heappush(heap, (nd, edge.target_id))
 
         if target_id not in dist:
             raise PathNotFoundError(f"{source_id} -> {target_id}")
 
         path_nodes = [target_id]
+        iliskiler = []
         cursor = target_id
         while cursor != source_id:
+            iliskiler.append(prev_edge.get(cursor, ""))
             cursor = prev[cursor]
             path_nodes.append(cursor)
         path_nodes.reverse()
+        iliskiler.reverse()
 
-        return GraphPath(nodes=tuple(path_nodes), total_cost=dist[target_id])
+        return GraphPath(nodes=tuple(path_nodes), total_cost=dist[target_id],
+                         relations=tuple(iliskiler))

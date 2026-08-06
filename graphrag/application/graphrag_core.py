@@ -35,11 +35,16 @@ from graphrag.domain.interfaces import (
     IKeywordIndex,
     ILanguageModel,
     IPrivacyFilter,
+    IRelationExtractor,
     IVectorStore,
 )
 from graphrag.infrastructure.graph.graph_search_engine import GraphSearchEngine
 
+# Yalnızca "aynı belgede birlikte geçtiler" bilgisi — zayıf kanıt.
 _CO_OCCURRENCE_CONFIDENCE = 0.5
+# Metinden AÇIKÇA çıkarılmış tipli ilişki — daha güçlü kanıt olduğu için
+# daha yüksek güven alır; Dijkstra bu kenarları tercih eder.
+_RELATION_CONFIDENCE = 0.8
 
 
 class GraphRAGCore:
@@ -47,7 +52,8 @@ class GraphRAGCore:
                  vectors: IVectorStore, graph: IGraphStore,
                  extractor: IEntityExtractor, privacy: IPrivacyFilter,
                  chunker: IChunker, keyword_index: IKeywordIndex,
-                 audit_log: IAuditLog, catalog: IDocumentCatalog) -> None:
+                 audit_log: IAuditLog, catalog: IDocumentCatalog,
+                 relation_extractor: IRelationExtractor) -> None:
         self._loader = loader
         self._llm = llm
         self._vectors = vectors
@@ -59,6 +65,7 @@ class GraphRAGCore:
         self._keyword = keyword_index
         self._audit = audit_log
         self._catalog = catalog
+        self._relations = relation_extractor
 
     def ingest(self, uri: str) -> Document:
         document = self._loader.load(uri)
@@ -81,6 +88,7 @@ class GraphRAGCore:
 
         entity_names = self._extractor.extract(document.raw_text)
         node_ids = []
+        kabul_edilen = []      # temellendirmeyi geçen varlık adları
         for name in entity_names:
             # TEMELLENDİRME: belgede geçmeyen ad, LLM'in uydurmasıdır —
             # grafa alınmaz. Bulunursa belgedeki yazım kullanılır (İ/ı
@@ -99,17 +107,27 @@ class GraphRAGCore:
                 pass
             self._graph.upsert_node(GraphNode(node_id=node_id, label=label))
             node_ids.append(node_id)
+            kabul_edilen.append(label)
 
-        weight = -math.log(_CO_OCCURRENCE_CONFIDENCE)
+        # Metinden tipli ilişkileri çıkar: "Acme --anlaştı--> Proje Zeus"
+        etiketler = {}
+        for r in self._relations.extract(document.raw_text, kabul_edilen):
+            etiketler[(canonical_entity_key(r.source),
+                       canonical_entity_key(r.target))] = r.relation
+
+        zayif = -math.log(_CO_OCCURRENCE_CONFIDENCE)
+        guclu = -math.log(_RELATION_CONFIDENCE)
         for i in range(len(node_ids)):
             for j in range(i + 1, len(node_ids)):
                 a, b = node_ids[i], node_ids[j]
                 if a == b:
                     continue  # aynı varlığın farklı yazımı, zaten aynı düğüm
-                self._graph.upsert_edge(
-                    GraphEdge(a, b, weight, _CO_OCCURRENCE_CONFIDENCE))
-                self._graph.upsert_edge(
-                    GraphEdge(b, a, weight, _CO_OCCURRENCE_CONFIDENCE))
+                # İlişki iki yönden birinde bulunmuşsa kenar TİPLİ olur.
+                etiket = etiketler.get((a, b)) or etiketler.get((b, a)) or ""
+                w, guven = ((guclu, _RELATION_CONFIDENCE) if etiket
+                            else (zayif, _CO_OCCURRENCE_CONFIDENCE))
+                self._graph.upsert_edge(GraphEdge(a, b, w, guven, etiket))
+                self._graph.upsert_edge(GraphEdge(b, a, w, guven, etiket))
 
         document.transition_to(
             DocumentState.PARSED,
@@ -201,6 +219,29 @@ class GraphRAGCore:
              "placeholder": e.placeholder, "timestamp": e.timestamp}
             for e in reversed(self._audit.events())
         ]
+
+    def find_connection_detailed(self, source_id: str, target_id: str) -> dict:
+        """Bağlantıyı YAPILANDIRILMIŞ olarak döndürür (metin ayrıştırmaya gerek yok).
+
+        Arayüz eskiden sonucu düz metinden ayrıştırıyordu; varlık adında ':' ya
+        da '->' geçmesi bunu bozabilirdi. Yapılandırılmış çıktı bu kırılganlığı
+        ortadan kaldırır ve ilişki etiketlerini de taşır.
+        """
+        try:
+            path = self._search.shortest_path(canonical_entity_key(source_id),
+                                              canonical_entity_key(target_id))
+        except PathNotFoundError:
+            return {"found": False, "nodes": [], "relations": [],
+                    "confidence": 0.0,
+                    "message": "Bu iki varlık arasında bilinen bir bağlantı bulunamadı."}
+
+        return {
+            "found": True,
+            "nodes": [self._graph.get_node(n).label for n in path.nodes],
+            "relations": list(path.relations),
+            "confidence": round(path.probability, 4),
+            "message": "",
+        }
 
     def find_connection(self, source_id: str, target_id: str) -> str:
         # Girdi de aynı kurallarla normalize edilir: kullanıcı "Acme Holding A.Ş."

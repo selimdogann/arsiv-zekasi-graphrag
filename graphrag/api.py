@@ -181,8 +181,8 @@ def ask(req: AskRequest, core: GraphRAGCore = Depends(get_core)):
 
 @app.get("/connection", dependencies=_KORUMALI)
 def connection(source: str, target: str, core: GraphRAGCore = Depends(get_core)):
-    """İki varlık arasındaki graf bağlantısını bulur."""
-    return {"result": core.find_connection(source, target)}
+    """İki varlık arasındaki graf bağlantısını YAPILANDIRILMIŞ olarak döndürür."""
+    return core.find_connection_detailed(source, target)
 
 
 @app.get("/entities", dependencies=_KORUMALI)

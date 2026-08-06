@@ -404,7 +404,10 @@
     @keyframes pop { from { opacity: 0; transform: scale(.96); } }
 
     /* Bağlayıcı ok: iki düğüm arasında, sabit genişlikte, hep bağlı */
-    .edge { flex: 0 0 38px; display: flex; align-items: center; justify-content: center; color: var(--muted); }
+    .edge { flex: 0 0 auto; min-width: 38px; display: flex; flex-direction: column;
+            align-items: center; justify-content: center; gap: 2px; color: var(--muted); padding: 0 5px; }
+    .edge-label { font-family: var(--font-mono); font-size: .68rem; color: var(--amber);
+                  white-space: nowrap; line-height: 1.2; }
     .edge svg { width: 38px; height: 12px; }
 
     /* Güven skoru: nötr rozet (düşük skor normaldir, alarm rengi kullanılmaz) */
@@ -1082,31 +1085,29 @@
       if (!source || !target) { toast("Kaynak ve hedef varlık gerekli", true); return; }
       try {
         const url = "/connection?source=" + encodeURIComponent(source) + "&target=" + encodeURIComponent(target);
-        renderConnection(out, (await api(url)).result);
+        renderConnection(out, await api(url));
       } catch (e) { showErr(out, e.message); }
     }));
 
-    function renderConnection(out, text) {
-      if (!text.includes("->")) {                 // "bağlantı bulunamadı" durumu
+    // Sunucu artık YAPILANDIRILMIŞ veri döndürüyor: { found, nodes, relations,
+    // confidence }. Eskiden sonuç düz metinden ayrıştırılıyordu; varlık adında
+    // ':' ya da '->' geçmesi bunu bozabiliyordu.
+    function renderConnection(out, veri) {
+      if (!veri.found) {
         out.innerHTML = '<div class="answer"></div>';
-        out.querySelector(".answer").textContent = text;
+        out.querySelector(".answer").textContent = veri.message;
         return;
       }
-      // "Bağlantı bulundu: A -> B -> C  (güven: 0.25)" biçimini ayrıştır.
-      // İlk ':' sonrası zincir, sondaki parantez içi güven skoru.
-      const zincir = text.slice(text.indexOf(":") + 1).replace(/\(.*\)\s*$/, "");
-      const nodes = zincir.split("->").map(s => s.trim()).filter(Boolean);
-      const conf = (text.match(/güven:\s*([0-9.]+)/) || [])[1];
+      const nodes = veri.nodes, iliskiler = veri.relations || [];
 
       const graph = document.createElement("div"); graph.className = "graph";
       const chain = document.createElement("div"); chain.className = "chain";
 
       nodes.forEach((name, i) => {
         const node = document.createElement("div");
-        // Uç düğümler (ilk ve son) amber; aradakiler teal
         node.className = "node" + (i === 0 || i === nodes.length - 1 ? " end" : "");
         node.style.animationDelay = (i * 0.07) + "s";
-        node.title = name;                        // uzun adlar kısaltılırsa tam adı göster
+        node.title = name;
         const pin = document.createElement("span"); pin.className = "pin";
         const nm = document.createElement("span"); nm.className = "nm"; nm.textContent = name;
         node.appendChild(pin); node.appendChild(nm);
@@ -1115,12 +1116,15 @@
         // Ok YALNIZCA iki düğüm arasına konur — son düğümden sonra ok çıkmaz.
         if (i < nodes.length - 1) {
           const edge = document.createElement("div"); edge.className = "edge";
+          const etiket = iliskiler[i] || "";
           edge.innerHTML =
+            (etiket ? '<span class="edge-label"></span>' : "") +
             '<svg viewBox="0 0 38 12" fill="none" aria-hidden="true">' +
               '<path d="M1 6 H30" stroke="currentColor" stroke-width="1.6"/>' +
               '<path d="M29 2 L34 6 L29 10" stroke="currentColor" stroke-width="1.6" ' +
                 'fill="none" stroke-linecap="round" stroke-linejoin="round"/>' +
-            '</svg>';
+            "</svg>";
+          if (etiket) edge.querySelector(".edge-label").textContent = etiket;
           chain.appendChild(edge);
         }
       });
@@ -1128,23 +1132,22 @@
       graph.appendChild(chain);
       out.innerHTML = ""; out.appendChild(graph);
 
-      if (conf) {
-        const row = document.createElement("div"); row.className = "conf-row";
-        const badge = document.createElement("div"); badge.className = "conf-badge";
-        const lbl = document.createElement("span"); lbl.className = "lbl";
-        lbl.textContent = "Birleşik güven skoru";
-        const val = document.createElement("span"); val.className = "val"; val.textContent = conf;
-        const sep = document.createElement("span"); sep.className = "sep";
-        const hops = document.createElement("span"); hops.className = "hops";
-        hops.textContent = (nodes.length - 1) + " adım";
-        badge.appendChild(lbl); badge.appendChild(val);
-        badge.appendChild(sep); badge.appendChild(hops);
+      const row = document.createElement("div"); row.className = "conf-row";
+      const badge = document.createElement("div"); badge.className = "conf-badge";
+      const lbl = document.createElement("span"); lbl.className = "lbl";
+      lbl.textContent = "Birleşik güven skoru";
+      const val = document.createElement("span"); val.className = "val";
+      val.textContent = Number(veri.confidence).toFixed(2);
+      const sep = document.createElement("span"); sep.className = "sep";
+      const hops = document.createElement("span"); hops.className = "hops";
+      hops.textContent = (nodes.length - 1) + " adım";
+      badge.appendChild(lbl); badge.appendChild(val);
+      badge.appendChild(sep); badge.appendChild(hops);
 
-        const note = document.createElement("div"); note.className = "conf-note";
-        note.textContent = "Her adımın güveni çarpılır; zincir uzadıkça skorun düşmesi normaldir.";
-        row.appendChild(badge); row.appendChild(note);
-        out.appendChild(row);
-      }
+      const note = document.createElement("div"); note.className = "conf-note";
+      note.textContent = "Her adımın güveni çarpılır; zincir uzadıkça skorun düşmesi normaldir.";
+      row.appendChild(badge); row.appendChild(note);
+      out.appendChild(row);
     }
 
     /* ---------- başlangıç ---------- */
