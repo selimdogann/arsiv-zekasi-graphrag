@@ -52,6 +52,7 @@ class GraphEdgeRow(Base):
     target_id: Mapped[str] = mapped_column(String, primary_key=True)
     weight: Mapped[float] = mapped_column(Float)
     confidence: Mapped[float] = mapped_column(Float)
+    relation: Mapped[str] = mapped_column(String, default="")
 
 
 class AuditEventRow(Base):

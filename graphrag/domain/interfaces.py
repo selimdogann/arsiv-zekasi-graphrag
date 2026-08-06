@@ -18,6 +18,7 @@ from graphrag.domain.entities import (
     DocumentInfo,
     GraphEdge,
     GraphNode,
+    Relation,
 )
 from graphrag.domain.privacy import AuditEvent
 
@@ -140,6 +141,19 @@ class IEntityExtractor(ABC):
     @abstractmethod
     def extract(self, text: str) -> List[str]:
         """Metindeki varlık adı adaylarını döndürür."""
+
+
+class IRelationExtractor(ABC):
+    """Metinden TİPLİ ilişki çıkaran sözleşme.
+
+    Varlık çıkarımı "kimler var" sorusunu yanıtlar; bu port ise "aralarındaki
+    ilişki NE" sorusunu. Böylece graf kenarları yalnızca "aynı belgede geçti"
+    değil, "anlaştı" / "teknik destek verdi" gibi anlam taşır.
+    """
+
+    @abstractmethod
+    def extract(self, text: str, entities: List[str]) -> List[Relation]:
+        """Metindeki (özne, ilişki, nesne) üçlülerini döndürür."""
 
 
 class IAuditLog(ABC):

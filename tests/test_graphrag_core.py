@@ -15,7 +15,12 @@ import hashlib
 
 from graphrag.application.graphrag_core import GraphRAGCore
 from graphrag.domain.entities import Document, DocumentState
-from graphrag.domain.interfaces import IDocumentLoader, ILanguageModel
+from graphrag.domain.entities import Relation
+from graphrag.domain.interfaces import (
+    IDocumentLoader,
+    ILanguageModel,
+    IRelationExtractor,
+)
 from graphrag.domain.text_tr import canonical_key
 from graphrag.infrastructure.catalog.memory_catalog import InMemoryDocumentCatalog
 from graphrag.infrastructure.chunking.text_chunker import SlidingWindowChunker
@@ -54,6 +59,15 @@ class _KaydedenSahteLLM(ILanguageModel):
         return (float(h % 1000), float((h // 1000) % 1000), 1.0)
 
 
+class _SahteIliskiCikarici(IRelationExtractor):
+    """Testlerde sabit ilişki döndürür (gerçek LLM'e gidilmez)."""
+
+    iliskiler = []
+
+    def extract(self, text, entities):
+        return list(self.iliskiler)
+
+
 def _core_kur():
     """Gerçek deterministik bileşenler + sahte loader/LLM ile bir core kurar."""
     loader = _SahteLoader()
@@ -72,6 +86,7 @@ def _core_kur():
         keyword_index=InMemoryKeywordIndex(),
         audit_log=audit_log,
         catalog=InMemoryDocumentCatalog(),
+        relation_extractor=_SahteIliskiCikarici(),
     )
     return core, loader, llm, vectors, graph
 
@@ -222,3 +237,57 @@ def test_stats_belge_sayisini_katalogdan_alir():
     core.ingest("a.txt"); core.ingest("b.txt")
 
     assert core.stats()["documents"] == 2
+
+
+# ------------------------------------------------------------ tipli ilişkiler
+
+def test_tipli_iliski_kenara_etiket_olarak_islenir():
+    core, loader, _llm, _vec, _graph = _core_kur()
+    core._relations.iliskiler = [
+        Relation(source="Acme Holding", relation="anlaştı", target="Beta Firması")
+    ]
+    loader.texts["a"] = "Acme Holding, Beta Firması ile anlaştı."
+    core.ingest("a")
+
+    sonuc = core.find_connection_detailed("Acme Holding", "Beta Firması")
+
+    assert sonuc["found"] is True
+    assert sonuc["relations"] == ["anlaştı"]
+
+
+def test_tipli_iliski_daha_yuksek_guven_alir():
+    # Tipli ilişki (0.8), yalnızca birlikte geçmeden (0.5) daha güvenilirdir
+    core, loader, _llm, _vec, _graph = _core_kur()
+    core._relations.iliskiler = [
+        Relation(source="Acme Holding", relation="anlaştı", target="Beta Firması")
+    ]
+    loader.texts["a"] = "Acme Holding, Proje Zeus için Beta Firması ile anlaştı."
+    core.ingest("a")
+
+    tipli = core.find_connection_detailed("Acme Holding", "Beta Firması")
+    tipsiz = core.find_connection_detailed("Acme Holding", "Proje Zeus")
+
+    assert tipli["confidence"] > tipsiz["confidence"]
+
+
+def test_iliski_yoksa_etiket_bos_kalir():
+    core, loader, _llm, _vec, _graph = _core_kur()
+    core._relations.iliskiler = []
+    loader.texts["a"] = "Acme Holding ve Beta Firması aynı belgede geçiyor."
+    core.ingest("a")
+
+    sonuc = core.find_connection_detailed("Acme Holding", "Beta Firması")
+
+    assert sonuc["found"] is True
+    assert sonuc["relations"] == [""]
+
+
+def test_baglanti_yoksa_yapilandirilmis_bilgi_doner():
+    core, loader, _llm, _vec, _graph = _core_kur()
+    loader.texts["a"] = "Acme Holding tek başına."
+    core.ingest("a")
+
+    sonuc = core.find_connection_detailed("Acme Holding", "Gamma Danışmanlık")
+
+    assert sonuc["found"] is False
+    assert "bulunamadı" in sonuc["message"]

@@ -20,3 +20,10 @@ def init_schema(engine: Engine) -> None:
     with engine.begin() as conn:
         conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
     Base.metadata.create_all(engine)
+
+    # Küçük, idempotent şema geçişi: `relation` sütunu sonradan eklendi;
+    # create_all mevcut tabloları değiştirmediği için burada garantilenir.
+    with engine.begin() as conn:
+        conn.execute(text(
+            "ALTER TABLE graph_edges "
+            "ADD COLUMN IF NOT EXISTS relation VARCHAR DEFAULT ''"))

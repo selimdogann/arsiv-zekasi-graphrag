@@ -26,9 +26,10 @@ bulamaz. Sistem, belgelerden çıkardığı bilgi grafı üzerinde dolaylı ili�
 bulur:
 
 ```
-Acme Holding  →  Proje Zeus  →  Gamma Danışmanlık        (güven: 0.25)
+Acme Holding ──anlaştı──▶ Proje Zeus ──────▶ Gamma Danışmanlık   (güven: 0.40)
 ```
 
+Sistem yalnızca "bağlılar" demez; ilişkinin **türünü** de metinden çıkarır.
 Bu bir yapay zekâ tahmini değildir: **Dijkstra algoritmasıyla** hesaplanan,
 deterministik ve açıklanabilir bir sonuçtur (0.02 saniye).
 
@@ -170,6 +171,7 @@ flowchart TD
 | Konu | Uygulama |
 |---|---|
 | **Graf araması** | Dijkstra; kenar ağırlığı `-log(güven)` — en kısa yol = **en güvenilir zincir** |
+| **İlişki çıkarımı** | Metinden (özne, ilişki, nesne) üçlüleri; tipli kenarlar co-occurrence'tan daha yüksek güven alır |
 | **Hibrit retrieval** | Embedding + BM25, **Reciprocal Rank Fusion** ile birleştirme |
 | **Belge yaşam döngüsü** | Sonlu durum makinesi (DFA): `RECEIVED → PARSING → PARSED` |
 | **Kimlik doğrulama** | TCKN/VKN/IBAN **checksum** algoritmaları |
@@ -188,7 +190,7 @@ Ollama (`qwen2.5:7b`, `bge-m3`) · rank-bm25 · pytest · Docker · GitHub Actio
 python -m pytest
 ```
 
-**129 test** — birim ve entegrasyon. Dış bağımlılıklar (LLM, dosya sistemi)
+**133 test** — birim ve entegrasyon. Dış bağımlılıklar (LLM, dosya sistemi)
 sahte nesnelerle değiştirilir; testler internet veya model gerektirmez.
 Her Pull Request'te **GitHub Actions** ile otomatik çalışır.
 
@@ -215,7 +217,7 @@ açıkça ortaya koyar.
 
 | Sınır | Bugünkü durum | Yapılabilecek |
 |---|---|---|
-| **İlişki tipleri** | Graf kenarları yalnızca "aynı belgede birlikte geçti" bilgisini taşır | İlişki türünü de çıkarmak (`imzaladı`, `danışmanlık verdi`) — tipli graf |
+| **İlişki yönü** | Etiket her iki yönde de aynı görünür; ters yön için fiil çevrilmez | Yöne göre ters fiil üretimi |
 | **Ölçek** | 5 belgelik bir gösterim; büyük arşivle denenmedi | pgvector indeksleme (HNSW) + asenkron yükleme kuyruğu |
 | **Retrieval hassasiyeti** | Hibrit arama var, yeniden sıralayıcı (reranker) yok | Cross-encoder reranker — çok adaylı aramada isabeti artırır |
 | **Aktarım güvenliği** | API anahtarı HTTP üzerinden düz metin gider | Ters proxy arkasında HTTPS |
