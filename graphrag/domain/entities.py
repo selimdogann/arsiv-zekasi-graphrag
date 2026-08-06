@@ -86,6 +86,19 @@ class GraphEdge:
     target_id: str
     weight: float
     confidence: float
+    # İlişkinin TÜRÜ ("anlaştı", "teknik destek verdi"). Boş ise ilişki
+    # metinden çıkarılamamıştır; kenar yalnızca "aynı belgede birlikte geçti"
+    # (co-occurrence) bilgisini taşır.
+    relation: str = ""
+
+
+@dataclass(frozen=True)
+class Relation:
+    """Metinden çıkarılmış tipli ilişki: (özne, ilişki, nesne) üçlüsü."""
+
+    source: str
+    relation: str
+    target: str
 
 
 @dataclass(frozen=True)
@@ -94,6 +107,8 @@ class GraphPath:
 
     nodes: Tuple[str, ...]
     total_cost: float
+    # Ardışık düğümler arasındaki ilişki etiketleri (nodes'tan bir eksik)
+    relations: Tuple[str, ...] = ()
 
     @property
     def probability(self) -> float:
