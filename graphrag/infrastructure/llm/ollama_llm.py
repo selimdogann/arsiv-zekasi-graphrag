@@ -19,6 +19,12 @@ _BASE_URL = "http://localhost:11434"
 # bir deneyim yarattığı için modeli daha uzun süre bellekte tutuyoruz.
 _KEEP_ALIVE = "30m"
 
+# Sıcaklık (temperature) modelin ne kadar "yaratıcı" olacağını belirler.
+# Ollama varsayılanı 0.8; bu, aynı metinden her seferinde FARKLI varlık ve
+# ilişki çıkarılmasına yol açıyordu. Bu sistemde LLM'den beklenen yaratıcılık
+# değil, metne sadakat: 0 ile çıktı olabildiğince kararlı hâle getirilir.
+_OPTIONS = {"temperature": 0}
+
 # Aktif modeller — arayüzün durum çubuğunda gerçek değeri gösterebilmesi için
 # dışa açık (public) tutulur.
 CHAT_MODEL = "qwen2.5:7b"
@@ -50,6 +56,7 @@ class OllamaLanguageModel(ILanguageModel):
                 ],
                 "stream": False,
                 "keep_alive": _KEEP_ALIVE,
+                "options": _OPTIONS,
             },
             timeout=60,
         )
