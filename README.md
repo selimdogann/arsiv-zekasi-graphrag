@@ -1,77 +1,117 @@
-# Enterprise GraphRAG — Kurumsal Arşiv Zekâsı
+# Arşiv Zekâsı — Kurumsal GraphRAG
 
-Kurumsal ve hukuki belge arşivleri için **on-premise (yerel), KVKK-uyumlu,
-hibrit bir GraphRAG** sistemi. Yapay zekâyı deterministik algoritmalarla (graf
-araması, Dijkstra, durum makineleri, checksum) dizginler — ve **veriler
-sunucudan hiç çıkmaz.**
+Kurumsal ve hukuki belge arşivleri için **tamamen yerelde çalışan**, KVKK-uyumlu
+bir belge analiz sistemi. Belgelerinize doğal dille soru sorabilir, farklı
+belgelerdeki varlıklar arasındaki **gizli bağlantıları** keşfedebilirsiniz.
 
-## Ne yapar?
+Yapay zekâ yerelde (Ollama) çalışır; **hiçbir veri buluta gönderilmez.**
 
-Belgeler üzerinde üç yaklaşımı birleştirir:
+---
 
-1. **Hibrit arama (RAG):** anlamsal (embedding) + anahtar kelime (BM25)
-   aramalarını birleştirip (RRF) en ilgili metni bulur, yerel bir dil modeliyle
-   (LLM) doğal dilde cevap üretir.
-2. **İlişki bulma (graf):** belgelerden çıkarılan varlıklar arası **gizli
-   bağlantıları** bilgi grafı üzerinde, güven skoruyla (Dijkstra) bulur.
-3. **KVKK uyumu:** kişisel verileri (TCKN/VKN/IBAN, e-posta, telefon) işleme
-   girmeden maskeler.
+## Çözdüğü problem
 
-> **Örnek:** İki farklı belgede geçen "Acme Holding" ve "Gamma Danışmanlık",
-> ortak "Proje Zeus" üzerinden dolaylı olarak bağlıdır. Sıradan bir arama bunu
-> bulamaz; bu sistem `Acme Holding → Proje Zeus → Gamma Danışmanlık` zincirini
-> bir güven skoruyla çıkarır.
+İki ayrı sözleşme düşünün:
 
-## Neden farklı? (On-prem + KVKK)
+```
+sozlesme_A.txt :  "Acme Holding, Proje Zeus için Beta Firması ile anlaştı."
+sozlesme_B.txt :  "Proje Zeus kapsamında Gamma Danışmanlık teknik destek verdi."
+```
 
-Bulut tabanlı GraphRAG çözümlerinin aksine, tamamen **yerelde** çalışır:
-yerel LLM (Ollama) ve kendi veritabanınız (PostgreSQL). Veri Türkiye dışına ya
-da üçüncü taraf buluta gitmez — Türk kurumsal/hukuki müşteriler için **KVKK
-(6698 sayılı Kanun)** açısından belirleyici bir avantaj.
+**"Acme Holding ile Gamma Danışmanlık bağlantılı mı?"**
 
-## Özellikler
+Bu iki firma **hiçbir belgede birlikte geçmiyor** — Ctrl+F veya klasik arama
+bulamaz. Sistem, belgelerden çıkardığı bilgi grafı üzerinde dolaylı ilişkiyi
+bulur:
 
-- **Belge yükleme:** `.txt`, `.pdf`, `.docx` (otomatik format yönlendirme)
-- **Belge parçalama (chunking):** kelime bütünlüğünü koruyan, örtüşmeli parçalama
-- **Hibrit retrieval:** anlamsal (bge-m3 embedding) + anahtar kelime (BM25) +
-  Reciprocal Rank Fusion (RRF)
-- **LLM tabanlı varlık çıkarımı** ile bilgi grafı kurma
-- **Graf bağlantı bulma:** güven skorlu en iyi yol (Dijkstra, `-log(güven)` hilesi)
-- **KVKK / PII maskeleme:** TCKN/VKN/IBAN checksum doğrulama + takma adlaştırma
-  (pseudonymization) + denetim kaydı (audit log)
-- **Türkçe-farkında metin işleme** (İ/ı normalizasyonu)
-- **Kalıcılık:** PostgreSQL + pgvector (tek veritabanı; vektör + graf + denetim)
-- **API + Web arayüzü:** FastAPI REST API ve basit bir web arayüzü
-- **Yerel LLM:** Ollama (`qwen2.5:7b` sohbet, `bge-m3` çok dilli embedding)
-- **Güvenlik:** API anahtarı ile korunan veri uçları (on-prem için `X-API-Key`)
-- **Kalite güvencesi:** 127 otomatik test + GitHub Actions CI
+```
+Acme Holding  →  Proje Zeus  →  Gamma Danışmanlık        (güven: 0.25)
+```
+
+Bu bir yapay zekâ tahmini değildir: **Dijkstra algoritmasıyla** hesaplanan,
+deterministik ve açıklanabilir bir sonuçtur (0.02 saniye).
+
+---
+
+## Sistem üç yaklaşımı birleştirir
+
+| | Ne yapar | Nasıl |
+|---|---|---|
+| **Hibrit arama** | Soruya en ilgili metni bulur | Anlamsal (embedding) + anahtar kelime (BM25), RRF ile birleştirme |
+| **Bilgi grafı** | Gizli ilişkileri bulur | Varlık çıkarımı → graf → Dijkstra (`-log(güven)` ağırlık) |
+| **KVKK katmanı** | Kişisel veriyi korur | TCKN/VKN/IBAN maskeleme + denetim kaydı |
+
+Her cevap, **dayandığı belgeyi kaynak olarak gösterir** — hukuki kullanımda
+doğrulanabilirlik esastır.
+
+---
+
+## Kurulum
+
+### Gereksinimler
+
+| | Zorunlu mu | Not |
+|---|---|---|
+| **Python 3.9+** | Evet | |
+| **[Ollama](https://ollama.com)** | Evet | Yapay zekâ modellerini yerelde çalıştırır |
+| **Docker** | Hayır | Yalnızca verilerin kalıcı olması için |
+
+### Adımlar
+
+```bash
+# 1) Projeyi indirin
+git clone https://github.com/selimdogann/Enterprise-GraphRAG.git
+cd Enterprise-GraphRAG
+
+# 2) Python ortamı
+python3 -m venv .venv
+source .venv/bin/activate          # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+
+# 3) Yapay zekâ modelleri (~6 GB, tek seferlik)
+ollama pull qwen2.5:7b             # cevap üretimi
+ollama pull bge-m3                 # metin → vektör
+
+# 4) Başlatın
+./scripts/baslat.sh
+```
+
+`baslat.sh` her şeyi sırayla açar (Ollama → veritabanı → sunucu), modelleri
+önden ısıtır ve sonunda arayüz adresini + API anahtarını yazdırır.
+
+> **Docker kurmadıysanız** sorun değil — sistem otomatik olarak bellek-içi
+> modda çalışır, yalnızca veriler uygulama kapanınca kaybolur.
+
+Elle başlatmak isterseniz: `uvicorn graphrag.api:app`
+
+---
+
+## Kullanım
+
+Tarayıcıda: **http://localhost:8000/app/**
+
+1. **Belge yükleyin** — `ornek_belgeler/` klasöründeki 5 örnek belgeyi sürükleyip
+   bırakın (hazır test verisi; içerikleri tamamen uydurmadır).
+2. **Soru sorun** — "Gamma Danışmanlık ne iş yaptı?" Cevabın altında hangi
+   belgeden geldiği görünür.
+3. **Bağlantı bulun** — Kaynak: `Acme Holding`, Hedef: `Gamma Danışmanlık`.
+   Zincir graf üzerinde çizilir.
+4. **KVKK denetim kaydını inceleyin** — belgelerdeki TCKN/IBAN/VKN değerlerinin
+   nasıl maskelendiğini gösterir.
+
+İlk açılışta arayüz sağ üstten **API anahtarı** ister; `baslat.sh` çıktısındaki
+anahtarı yapıştırmanız yeterli (tarayıcı hatırlar).
+
+---
 
 ## Mimari
 
-**Clean Architecture (Ports & Adapters):** `domain → application → infrastructure`.
-Çekirdek (`GraphRAGCore`) yalnızca soyut sözleşmelere (portlara) bağımlıdır;
-somut teknolojiler (LLM, veritabanı, arama motoru) bu portları dolduran
-değiştirilebilir adaptörlerdir. Bu sayede, örneğin bellek-içi depodan
-PostgreSQL'e geçiş çekirdeğe hiç dokunmadan yapılabilir.
-
-```
-graphrag/
-├── domain/           # Saf kurallar: entity'ler, sözleşmeler (portlar)
-├── application/      # GraphRAGCore (kullanım senaryoları)
-├── infrastructure/   # Adaptörler: LLM, vektör, graf, keyword, kalıcılık, KVKK
-└── composition.py    # Bağımlılıkların bağlandığı tek yer
-```
-
-### Bağımlılık yönü
-
-Altın kural: **oklar hep içe doğrudur.** Dış katmanlar iç katmana bağımlıdır;
-domain hiçbir somut teknolojiyi bilmez.
+**Clean Architecture (Ports & Adapters)** — üç katman, bağımlılıklar hep içe doğru:
 
 ```mermaid
 flowchart RL
     A["<b>Application</b><br/>GraphRAGCore<br/><i>ingest · answer · find_connection</i>"]
-    I["<b>Infrastructure</b><br/>Ollama · PostgreSQL + pgvector · BM25<br/>KVKK maskeleme · belge okuyucular"]
-    D["<b>Domain</b><br/>Entity'ler + Portlar (I...)<br/><i>saf kurallar, teknoloji yok</i>"]
+    I["<b>Infrastructure</b><br/>Ollama · PostgreSQL · BM25<br/>KVKK · belge okuyucular"]
+    D["<b>Domain</b><br/>Entity'ler + 11 Port<br/><i>saf kurallar, teknoloji yok</i>"]
     C["composition.py<br/><i>tek bağlama noktası</i>"]
 
     A -- "bağımlı" --> D
@@ -80,186 +120,94 @@ flowchart RL
     C -.-> I
 ```
 
-### Sorgu akışı
+Çekirdek (`GraphRAGCore`) hiçbir somut teknolojiyi bilmez; yalnızca soyut
+sözleşmelere (portlara) bağımlıdır. Bu sayede **bellek-içi depodan PostgreSQL'e,
+sahte LLM'den gerçek modele ve yalnızca-metinden PDF/Word desteğine geçiş —
+üçü de çekirdek koda dokunulmadan** yapıldı.
 
-Belge yükleme iki indeksi birden besler; soru sorulduğunda ikisi ayrı ayrı
-aranıp **RRF** ile birleştirilir ve cevap yalnızca bulunan parçalara dayanır.
+```
+graphrag/
+├── domain/           # Entity'ler + portlar (sözleşmeler)
+├── application/      # GraphRAGCore — kullanım senaryoları
+├── infrastructure/   # Adaptörler: LLM, vektör, graf, kalıcılık, KVKK
+└── composition.py    # Bağımlılıkların bağlandığı tek yer
+```
+
+### Sorgu akışı
 
 ```mermaid
 flowchart TD
-    subgraph ING["1 · Belge yükleme (ingest)"]
-        DOC["Belge<br/>.txt · .pdf · .docx"] --> PII["KVKK maskeleme<br/>TCKN/VKN/IBAN → takma ad"]
-        PII --> CHK["Parçalama<br/>(örtüşmeli chunking)"]
-        CHK --> EMB["Embedding<br/>bge-m3"]
+    subgraph ING["1 · Belge yükleme"]
+        DOC["Belge<br/>.txt · .pdf · .docx"] --> PII["KVKK maskeleme"]
+        PII --> CHK["Parçalama"]
+        CHK --> EMB["Embedding"]
         CHK --> BMI["BM25 indeksleme"]
     end
 
-    EMB --> VS[("Vektör deposu<br/>pgvector")]
-    BMI --> KS[("Anahtar kelime<br/>indeksi")]
+    EMB --> VS[("Vektör deposu")]
+    BMI --> KS[("Kelime indeksi")]
 
     subgraph SOR["2 · Sorgu"]
-        Q["Soru"] --> QV["Anlamsal arama<br/>top-10"]
-        Q --> QK["Anahtar kelime arama<br/>top-10"]
+        Q["Soru"] --> QV["Anlamsal arama"]
+        Q --> QK["Kelime arama"]
     end
 
     VS --> QV
     KS --> QK
-    QV --> RRF["RRF<br/>(Reciprocal Rank Fusion)"]
+    QV --> RRF["RRF birleştirme"]
     QK --> RRF
-    RRF --> CTX["En iyi 3 parça<br/>= BAĞLAM"]
-    CTX --> LLM["LLM<br/>qwen2.5:7b"]
-    LLM --> ANS["Cevap<br/>+ kaynak gösterimi"]
+    RRF --> CTX["En iyi 3 parça"]
+    CTX --> LLM["Yerel LLM"]
+    LLM --> ANS["Cevap + kaynak"]
 ```
 
-> **Neden melez?** Anlamsal arama eş anlamlıları yakalar ama tam terimleri
-> (sözleşme no, madde no) bulanıklaştırır; BM25 tam terimde güçlü, eş anlamlıda
-> zayıftır. RRF, farklı ölçekli skorları sıra numarasıyla birleştirir.
+---
 
-## Teknoloji yığını
+## Kullanılan yöntemler
 
-Python · FastAPI · PostgreSQL + pgvector · SQLAlchemy · Ollama (qwen2.5:7b,
-bge-m3) · rank-bm25 · pytest · Docker · GitHub Actions
-
-## Ön koşullar
-
-| Gereksinim | Durum | Not |
-|---|---|---|
-| **Python 3.x** | Zorunlu | Sanal ortam (`venv`) önerilir |
-| **[Ollama](https://ollama.com)** | Zorunlu | Kurulu **ve çalışır** olmalı (`ollama serve`); modeller yerelde çalışır |
-| **Docker** | Opsiyonel | Yalnızca kalıcı depolama (PostgreSQL + pgvector) için |
-
-> Docker kurmazsanız sistem **bellek-içi** modda tam olarak çalışır; yalnızca
-> veriler uygulama kapanınca kaybolur.
-
-## Kurulum & Çalıştırma
-
-### 1. Bağımlılıklar
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-```
-
-### 2. Yerel modeller (Ollama)
-```bash
-ollama pull qwen2.5:7b
-ollama pull bge-m3
-```
-
-### 3. (Opsiyonel) Kalıcılık — PostgreSQL
-```bash
-docker compose up -d
-export DATABASE_URL="postgresql+psycopg://graphrag:graphrag@localhost:5432/graphrag"
-```
-> `DATABASE_URL` tanımlı değilse sistem bellek-içi (in-memory) modda çalışır —
-> demo ve testler için veritabanı gerekmez.
-
-### 4. Güvenlik — API anahtarı
-
-```bash
-export API_KEY="$(openssl rand -hex 24)"   # güçlü, rastgele bir anahtar üretin
-```
-
-`API_KEY` tanımlıysa tüm **veri uçları** `X-API-Key` başlığı ister:
-
-```bash
-curl -H "X-API-Key: $API_KEY" http://localhost:8000/stats
-```
-
-| Uç | Koruma |
+| Konu | Uygulama |
 |---|---|
-| `/stats` · `/documents` · `/upload` · `/ask` · `/connection` · `/entities` · `/audit` | 🔒 Anahtar gerekli |
-| `/` (sağlık) · `/app/` (arayüz) · `/docs` | Açık — veri içermez |
+| **Graf araması** | Dijkstra; kenar ağırlığı `-log(güven)` — en kısa yol = **en güvenilir zincir** |
+| **Hibrit retrieval** | Embedding + BM25, **Reciprocal Rank Fusion** ile birleştirme |
+| **Belge yaşam döngüsü** | Sonlu durum makinesi (DFA): `RECEIVED → PARSING → PARSED` |
+| **Kimlik doğrulama** | TCKN/VKN/IBAN **checksum** algoritmaları |
+| **Türkçe metin** | İ/ı normalizasyonu, aksan katlama, şirket eki temizliği |
+| **Önbellek** | Decorator deseniyle memoization |
+| **Güvenlik** | API anahtarı; zamanlama saldırısına dayanıklı karşılaştırma |
 
-Web arayüzünde anahtar, sağ üstteki **kilit düğmesinden** girilir; yalnızca
-tarayıcıda (`localStorage`) saklanır ve her isteğe başlık olarak eklenir.
+**Teknolojiler:** Python · FastAPI · PostgreSQL + pgvector · SQLAlchemy ·
+Ollama (`qwen2.5:7b`, `bge-m3`) · rank-bm25 · pytest · Docker · GitHub Actions
 
-> ⚠️ `API_KEY` tanımlı **değilse doğrulama kapalıdır** (yerel geliştirme
-> kolaylığı). Bu durum sağlık ucunda `auth_enabled: false` olarak bildirilir.
-> **On-premise kurulumda `API_KEY` mutlaka tanımlanmalıdır.**
+---
 
-### 5. API + Web arayüzü
-```bash
-uvicorn graphrag.api:app --reload
-```
-- Web arayüzü: <http://localhost:8000/app/>
-- Otomatik API dokümanı (Swagger UI): <http://localhost:8000/docs>
+## Testler
 
-### 6. Arşivi sıfırlama (gerektiğinde)
-```bash
-DATABASE_URL="postgresql+psycopg://graphrag:graphrag@localhost:5432/graphrag" \
-    python3 scripts/reset_archive.py
-```
-> Tüm belge parçalarını, grafı ve denetim kayıtlarını siler. Sistem hazır/örnek
-> belge içermez; tek veri kaynağı sizin yüklediğiniz belgelerdir.
-
-### 7. Testler
 ```bash
 python -m pytest
 ```
-> 127 test; `DATABASE_URL` tanımlı değilse 5 PostgreSQL testi atlanır.
 
-## Örnek kullanım
+**129 test** — birim ve entegrasyon. Dış bağımlılıklar (LLM, dosya sistemi)
+sahte nesnelerle değiştirilir; testler internet veya model gerektirmez.
+Her Pull Request'te **GitHub Actions** ile otomatik çalışır.
 
-`ornek_belgeler/` klasöründe, sistemi denemek için hazırlanmış **5 sentetik
-kurumsal belge** vardır (sözleşme, toplantı tutanağı, fizibilite raporu,
-kurumsal yazışma, İK notu). İçlerindeki kişiler, şirketler ve numaralar
-tamamen uydurmadır — gerçek kişisel veri içermez.
+> `DATABASE_URL` tanımlı değilse 5 PostgreSQL testi otomatik atlanır.
 
-### 1) Belgeleri yükleyin
-Web arayüzünde (<http://localhost:8000/app/>) **01 · Belge Yükle** kartına
-`ornek_belgeler/` içindeki dosyaları sürükleyin. Ya da terminalden:
+---
 
-```bash
-for f in ornek_belgeler/*.txt; do
-  curl -s -X POST http://localhost:8000/upload \
-    -H "X-API-Key: $API_KEY" -F "files=@$f" > /dev/null
-done
-```
-> `API_KEY` tanımlamadıysanız `-H "X-API-Key: …"` satırını atlayın.
+## Performans
 
-### 2) Soru sorun (RAG + kaynak gösterimi)
-```bash
-curl -s -X POST http://localhost:8000/ask \
-  -H "Content-Type: application/json" -H "X-API-Key: $API_KEY" \
-  -d '{"question":"Gamma Danışmanlık ne iş yaptı?"}'
-```
-Cevapla birlikte **hangi belgeden geldiği** de döner:
-```json
-{
-  "answer": "Gamma Danışmanlık, Proje Zeus kapsamında fizibilite çalışmasını yürüttü.",
-  "sources": [{ "document_name": "03_gamma_fizibilite_raporu.txt", "text": "FİZİBİLİTE RAPORU …" }]
-}
-```
-> Cevabın ifadesi çalıştırmadan çalıştırmaya değişebilir (LLM üretimi
-> belirlenimci değildir); `sources` ise her zaman cevabın dayandığı gerçek
-> belgeyi gösterir.
+M4 / 16 GB üzerinde ölçülen değerler:
 
-### 3) Gizli bağlantıyı bulun (grafın asıl değeri)
-"Acme Holding" ile "Gamma Danışmanlık" **aynı belgede geçmez**; ortak
-"Proje Zeus" üzerinden dolaylı bağlıdırlar:
+| İşlem | Süre |
+|---|---|
+| Graf bağlantı bulma | **0.02 sn** (yapay zekâ kullanmaz) |
+| Soru-cevap | 5.5 – 7.5 sn (yerel model üretimi) |
+| Tekrarlanan soru | 0.015 sn (önbellek) |
+
+---
+
+## Diğer komutlar
 
 ```bash
-curl -s -G http://localhost:8000/connection -H "X-API-Key: $API_KEY" \
-  --data-urlencode "source=Acme Holding" \
-  --data-urlencode "target=Gamma Danışmanlık"
+python3 scripts/reset_archive.py     # arşivi tamamen sıfırla
 ```
-```json
-{ "result": "Bağlantı bulundu: Acme Holding -> Proje Zeus -> Gamma Danışmanlık  (güven: 0.25)" }
-```
-
-### 4) KVKK denetim kaydını görün
-Belgelerdeki TCKN, VKN ve IBAN değerleri **işlemeye girmeden** maskelenir:
-
-```bash
-curl -s -H "X-API-Key: $API_KEY" http://localhost:8000/audit
-```
-Örnek belgelerde 7 kişisel veri maskelenir (3 TCKN, 2 IBAN, 2 VKN). Denetim
-kaydı yalnızca veri **tipini** ve takma adı tutar; orijinal değer hiçbir yerde
-saklanmaz (veri minimizasyonu).
-
-## Durum
-
-Çalışan, uçtan uca bir sistem: belge yükleme → hibrit arama → graf bağlantı
-bulma → yerel LLM cevabı; kalıcı PostgreSQL, REST API + web arayüzü, 127
-otomatik test ve sürekli entegrasyon (CI). Aktif olarak geliştirilmektedir.

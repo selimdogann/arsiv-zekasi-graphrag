@@ -14,3 +14,9 @@ __pycache__/
 
 # Kullanıcının yüklediği belgeler
 uploads/
+
+# Yerel API anahtarı (baslat.sh üretir)
+.api_key
+
+# Kişisel sunum notları (repoya girmez)
+DEMO.md
