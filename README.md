@@ -43,7 +43,8 @@ da üçüncü taraf buluta gitmez — Türk kurumsal/hukuki müşteriler için *
 - **Kalıcılık:** PostgreSQL + pgvector (tek veritabanı; vektör + graf + denetim)
 - **API + Web arayüzü:** FastAPI REST API ve basit bir web arayüzü
 - **Yerel LLM:** Ollama (`qwen2.5:7b` sohbet, `bge-m3` çok dilli embedding)
-- **Kalite güvencesi:** 120 otomatik test + GitHub Actions CI
+- **Güvenlik:** API anahtarı ile korunan veri uçları (on-prem için `X-API-Key`)
+- **Kalite güvencesi:** 127 otomatik test + GitHub Actions CI
 
 ## Mimari
 
@@ -153,14 +154,38 @@ export DATABASE_URL="postgresql+psycopg://graphrag:graphrag@localhost:5432/graph
 > `DATABASE_URL` tanımlı değilse sistem bellek-içi (in-memory) modda çalışır —
 > demo ve testler için veritabanı gerekmez.
 
-### 4. API + Web arayüzü
+### 4. Güvenlik — API anahtarı
+
+```bash
+export API_KEY="$(openssl rand -hex 24)"   # güçlü, rastgele bir anahtar üretin
+```
+
+`API_KEY` tanımlıysa tüm **veri uçları** `X-API-Key` başlığı ister:
+
+```bash
+curl -H "X-API-Key: $API_KEY" http://localhost:8000/stats
+```
+
+| Uç | Koruma |
+|---|---|
+| `/stats` · `/documents` · `/upload` · `/ask` · `/connection` · `/entities` · `/audit` | 🔒 Anahtar gerekli |
+| `/` (sağlık) · `/app/` (arayüz) · `/docs` | Açık — veri içermez |
+
+Web arayüzünde anahtar, sağ üstteki **kilit düğmesinden** girilir; yalnızca
+tarayıcıda (`localStorage`) saklanır ve her isteğe başlık olarak eklenir.
+
+> ⚠️ `API_KEY` tanımlı **değilse doğrulama kapalıdır** (yerel geliştirme
+> kolaylığı). Bu durum sağlık ucunda `auth_enabled: false` olarak bildirilir.
+> **On-premise kurulumda `API_KEY` mutlaka tanımlanmalıdır.**
+
+### 5. API + Web arayüzü
 ```bash
 uvicorn graphrag.api:app --reload
 ```
 - Web arayüzü: <http://localhost:8000/app/>
 - Otomatik API dokümanı (Swagger UI): <http://localhost:8000/docs>
 
-### 5. Arşivi sıfırlama (gerektiğinde)
+### 6. Arşivi sıfırlama (gerektiğinde)
 ```bash
 DATABASE_URL="postgresql+psycopg://graphrag:graphrag@localhost:5432/graphrag" \
     python3 scripts/reset_archive.py
@@ -168,11 +193,11 @@ DATABASE_URL="postgresql+psycopg://graphrag:graphrag@localhost:5432/graphrag" \
 > Tüm belge parçalarını, grafı ve denetim kayıtlarını siler. Sistem hazır/örnek
 > belge içermez; tek veri kaynağı sizin yüklediğiniz belgelerdir.
 
-### 6. Testler
+### 7. Testler
 ```bash
 python -m pytest
 ```
-> 120 test; `DATABASE_URL` tanımlı değilse 5 PostgreSQL testi atlanır.
+> 127 test; `DATABASE_URL` tanımlı değilse 5 PostgreSQL testi atlanır.
 
 ## Örnek kullanım
 
@@ -187,14 +212,16 @@ Web arayüzünde (<http://localhost:8000/app/>) **01 · Belge Yükle** kartına
 
 ```bash
 for f in ornek_belgeler/*.txt; do
-  curl -s -X POST http://localhost:8000/upload -F "files=@$f" > /dev/null
+  curl -s -X POST http://localhost:8000/upload \
+    -H "X-API-Key: $API_KEY" -F "files=@$f" > /dev/null
 done
 ```
+> `API_KEY` tanımlamadıysanız `-H "X-API-Key: …"` satırını atlayın.
 
 ### 2) Soru sorun (RAG + kaynak gösterimi)
 ```bash
 curl -s -X POST http://localhost:8000/ask \
-  -H "Content-Type: application/json" \
+  -H "Content-Type: application/json" -H "X-API-Key: $API_KEY" \
   -d '{"question":"Gamma Danışmanlık ne iş yaptı?"}'
 ```
 Cevapla birlikte **hangi belgeden geldiği** de döner:
@@ -213,7 +240,7 @@ Cevapla birlikte **hangi belgeden geldiği** de döner:
 "Proje Zeus" üzerinden dolaylı bağlıdırlar:
 
 ```bash
-curl -s -G http://localhost:8000/connection \
+curl -s -G http://localhost:8000/connection -H "X-API-Key: $API_KEY" \
   --data-urlencode "source=Acme Holding" \
   --data-urlencode "target=Gamma Danışmanlık"
 ```
@@ -225,7 +252,7 @@ curl -s -G http://localhost:8000/connection \
 Belgelerdeki TCKN, VKN ve IBAN değerleri **işlemeye girmeden** maskelenir:
 
 ```bash
-curl -s http://localhost:8000/audit
+curl -s -H "X-API-Key: $API_KEY" http://localhost:8000/audit
 ```
 Örnek belgelerde 7 kişisel veri maskelenir (3 TCKN, 2 IBAN, 2 VKN). Denetim
 kaydı yalnızca veri **tipini** ve takma adı tutar; orijinal değer hiçbir yerde
@@ -234,5 +261,5 @@ saklanmaz (veri minimizasyonu).
 ## Durum
 
 Çalışan, uçtan uca bir sistem: belge yükleme → hibrit arama → graf bağlantı
-bulma → yerel LLM cevabı; kalıcı PostgreSQL, REST API + web arayüzü, 120
+bulma → yerel LLM cevabı; kalıcı PostgreSQL, REST API + web arayüzü, 127
 otomatik test ve sürekli entegrasyon (CI). Aktif olarak geliştirilmektedir.
