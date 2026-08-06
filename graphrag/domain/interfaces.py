@@ -12,7 +12,13 @@ from abc import ABC, abstractmethod
 from typing import List,Tuple
 
 
-from graphrag.domain.entities import Document, GraphEdge, GraphNode, Chunk
+from graphrag.domain.entities import (
+    Chunk,
+    Document,
+    DocumentInfo,
+    GraphEdge,
+    GraphNode,
+)
 from graphrag.domain.privacy import AuditEvent
 
 
@@ -22,6 +28,23 @@ class IDocumentLoader(ABC):
     @abstractmethod
     def load(self, uri: str) -> Document:
         """Verilen kaynaktan bir Document oluşturur."""
+
+
+class IDocumentCatalog(ABC):
+    """Arşive alınan belgelerin kaydı (ad, durum, zaman).
+
+    Parçalar ve graf kalıcı olsa bile belge ADI kaybolursa arayüzdeki liste
+    boşalır ve kaynak gösteriminde belge adı görünmez. Bu port, kaydı da
+    kalıcı hâle getirilebilir kılar.
+    """
+
+    @abstractmethod
+    def add(self, info: DocumentInfo) -> None:
+        """Belge kaydını ekler (aynı id tekrar gelirse günceller)."""
+
+    @abstractmethod
+    def all(self) -> List[DocumentInfo]:
+        """Tüm belge kayıtlarını, en yeniden eskiye döndürür."""
 
 
 class IChunker(ABC):

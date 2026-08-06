@@ -14,6 +14,7 @@ from __future__ import annotations
 from graphrag.application.graphrag_core import GraphRAGCore
 from graphrag.config import get_settings
 from graphrag.infrastructure.cache.memory_cache import InMemoryCache
+from graphrag.infrastructure.catalog.memory_catalog import InMemoryDocumentCatalog
 from graphrag.infrastructure.chunking.text_chunker import SlidingWindowChunker
 from graphrag.infrastructure.graph.graph_store import InMemoryGraphStore
 from graphrag.infrastructure.ingestion.auto_loader import AutoDocumentLoader
@@ -36,6 +37,7 @@ def _build_storage():
     settings = get_settings()
     if settings.database_url:
         from graphrag.infrastructure.db.engine import init_schema, make_engine
+        from graphrag.infrastructure.catalog.pg_catalog import PostgresDocumentCatalog
         from graphrag.infrastructure.graph.pg_graph_store import PostgresGraphStore
         from graphrag.infrastructure.privacy.pg_audit_log import PostgresAuditLog
         from graphrag.infrastructure.vector.pg_vector_store import PostgresVectorStore
@@ -46,12 +48,14 @@ def _build_storage():
             PostgresAuditLog(engine),
             PostgresVectorStore(engine),
             PostgresGraphStore(engine),
+            PostgresDocumentCatalog(engine),
         )
-    return (InMemoryAuditLog(), InMemoryVectorStore(), InMemoryGraphStore())
+    return (InMemoryAuditLog(), InMemoryVectorStore(), InMemoryGraphStore(),
+            InMemoryDocumentCatalog())
 
 
 def build_core() -> GraphRAGCore:
-    audit_log, vectors, graph = _build_storage()
+    audit_log, vectors, graph, catalog = _build_storage()
     # Tek bir önbellekli LLM; hem cevap üretimi hem varlık çıkarımı paylaşır.
     llm = CachedLanguageModel(OllamaLanguageModel(), InMemoryCache())
 
@@ -75,4 +79,5 @@ def build_core() -> GraphRAGCore:
         chunker=SlidingWindowChunker(),
         keyword_index=keyword_index,
         audit_log=audit_log,
+        catalog=catalog,
     )
