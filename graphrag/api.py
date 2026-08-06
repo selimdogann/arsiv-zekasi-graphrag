@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import os
 import secrets
-from datetime import datetime, timezone
 from typing import List, Optional
 
 import requests
@@ -35,10 +34,6 @@ app = FastAPI(title="Arşiv Zekâsı API", version="1.0.0")
 
 # Çekirdek İLK istekte bir kez kurulur (lazy singleton) ve tüm istekler paylaşır.
 _core: "GraphRAGCore | None" = None
-
-# Bu oturumda yüklenen belgelerin kaydı (arayüzde listelemek için).
-_documents: List[dict] = []
-
 
 def get_core() -> GraphRAGCore:
     """Endpoint'lere çekirdeği veren bağımlılık. Testte override edilebilir."""
@@ -80,19 +75,6 @@ class IngestRequest(BaseModel):
 
 class AskRequest(BaseModel):
     question: str
-
-
-def _register(document, name: str) -> dict:
-    """Yüklenen belgeyi oturum kaydına ekler ve arayüz için özet döndürür."""
-    entry = {
-        "document_id": document.document_id,
-        "name": name,
-        "state": str(document.state.value if hasattr(document.state, "value")
-                     else document.state),
-        "uploaded_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-    }
-    _documents.insert(0, entry)
-    return entry
 
 
 # --- Sistem durumu -----------------------------------------------------------
@@ -144,26 +126,22 @@ def health():
 @app.get("/stats", dependencies=_KORUMALI)
 def stats(core: GraphRAGCore = Depends(get_core)):
     """Arşiv özeti: parça, varlık, ilişki ve maskelenen kişisel veri sayısı."""
-    data = core.stats()
-    data["documents"] = len(_documents)
-    return data
+    return core.stats()
 
 
 # --- Belgeler ----------------------------------------------------------------
 
 @app.get("/documents", dependencies=_KORUMALI)
-def list_documents():
-    """Bu oturumda yüklenen belgelerin listesi."""
-    return {"documents": _documents}
+def list_documents(core: GraphRAGCore = Depends(get_core)):
+    """Arşivdeki belgelerin listesi (kalıcı)."""
+    return {"documents": core.documents()}
 
 
 @app.post("/documents", dependencies=_KORUMALI)
 def ingest_document(req: IngestRequest, core: GraphRAGCore = Depends(get_core)):
     """Sunucudaki bir belge yolunu ingest eder (örnek belgeler için)."""
     document = core.ingest(req.uri)
-    entry = _register(document, os.path.basename(req.uri))
-    return {"document_id": document.document_id, "state": document.state,
-            "document": entry}
+    return {"document_id": document.document_id, "state": document.state}
 
 
 @app.post("/upload", dependencies=_KORUMALI)
@@ -182,7 +160,8 @@ async def upload_documents(files: List[UploadFile] = File(...),
         with open(dest, "wb") as fh:
             fh.write(await file.read())
         document = core.ingest(dest)
-        results.append(_register(document, safe_name))
+        results.append({"document_id": document.document_id,
+                        "name": safe_name, "state": document.state.value})
     return {"documents": results}
 
 
@@ -194,7 +173,7 @@ def ask(req: AskRequest, core: GraphRAGCore = Depends(get_core)):
     result = core.answer_with_sources(req.question)
 
     # Kaynakları, kullanıcının tanıdığı belge adlarıyla zenginleştir.
-    names = {d["document_id"]: d["name"] for d in _documents}
+    names = {d["document_id"]: d["name"] for d in core.documents()}
     for source in result["sources"]:
         source["document_name"] = names.get(source["document_id"], "belge")
     return result
