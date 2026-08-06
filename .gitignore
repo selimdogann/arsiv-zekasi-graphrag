@@ -20,3 +20,10 @@ uploads/
 
 # Kişisel sunum notları (repoya girmez)
 DEMO.md
+
+# Çalışma zamanı günlükleri
+*.log
+
+# Kişisel notlar (görseller hariç)
+docs/*
+!docs/gorseller/
