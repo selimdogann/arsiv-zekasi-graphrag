@@ -51,6 +51,14 @@ class IGraphStore(ABC):
     def get_node(self, node_id: str) -> GraphNode:
         """Verilen id'ye sahip düğümü döndürür."""
 
+    @abstractmethod
+    def all_nodes(self) -> List[GraphNode]:
+        """Graftaki tüm düğümleri döndürür (varlık gezgini / istatistik için)."""
+
+    @abstractmethod
+    def edge_count(self) -> int:
+        """Graftaki toplam kenar sayısı (istatistik için)."""
+
 
 
 class IVectorStore(ABC):
@@ -64,6 +72,15 @@ class IVectorStore(ABC):
     def search(self, query_embedding: Tuple[float, ...], top_k: int
                ) -> List["tuple[Chunk, float]"]:
         """En benzer top_k chunk'ı, (chunk, benzerlik_skoru) çiftleri olarak döndürür."""
+
+    @abstractmethod
+    def count(self) -> int:
+        """Depodaki toplam parça (chunk) sayısı — istatistik için."""
+
+    @abstractmethod
+    def all_chunks(self) -> List[Chunk]:
+        """Depodaki tüm parçalar. Kalıcı depodan bellek-içi anahtar kelime
+        indeksini yeniden kurmak (uygulama açılışı) için gerekir."""
 
 
 class IKeywordIndex(ABC):
@@ -108,6 +125,10 @@ class IAuditLog(ABC):
     @abstractmethod
     def record(self, event: AuditEvent) -> None:
         """Bir denetim olayını kalıcı olarak kaydeder."""
+
+    @abstractmethod
+    def events(self) -> List[AuditEvent]:
+        """Kaydedilmiş denetim olaylarını döndürür (KVKK denetim raporu için)."""
 
 
 class IPrivacyFilter(ABC):

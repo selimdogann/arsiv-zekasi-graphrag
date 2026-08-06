@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import List, Tuple
 
-from sqlalchemy import Engine, select
+from sqlalchemy import Engine, func, select
 from sqlalchemy.orm import Session
 
 from graphrag.domain.entities import Chunk
@@ -50,4 +50,18 @@ class PostgresVectorStore(IVectorStore):
                     1.0 - row.dist,
                 )
                 for row in rows
+            ]
+
+    def count(self) -> int:
+        with Session(self._engine) as session:
+            return session.execute(
+                select(func.count()).select_from(ChunkRow)).scalar_one()
+
+    def all_chunks(self) -> List[Chunk]:
+        with Session(self._engine) as session:
+            rows = session.execute(select(ChunkRow)).scalars().all()
+            return [
+                Chunk(chunk_id=r.chunk_id, text=r.text,
+                      embedding=tuple(r.embedding))
+                for r in rows
             ]

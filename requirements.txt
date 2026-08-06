@@ -7,5 +7,6 @@ psycopg[binary]
 pgvector
 fastapi
 uvicorn[standard]
+python-multipart
 httpx
 rank-bm25

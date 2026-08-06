@@ -20,6 +20,7 @@ from graphrag.infrastructure.ingestion.auto_loader import AutoDocumentLoader
 from graphrag.infrastructure.keyword.bm25_index import InMemoryKeywordIndex
 from graphrag.infrastructure.llm.cached_llm import CachedLanguageModel
 from graphrag.infrastructure.llm.ollama_llm import OllamaLanguageModel
+from graphrag.infrastructure.nlp.entity_filter import FilteredEntityExtractor
 from graphrag.infrastructure.nlp.llm_entity_extractor import LlmEntityExtractor
 from graphrag.infrastructure.privacy.audit_log import InMemoryAuditLog
 from graphrag.infrastructure.privacy.kvkk_redactor import KvkkPiiRedactor
@@ -53,13 +54,25 @@ def build_core() -> GraphRAGCore:
     audit_log, vectors, graph = _build_storage()
     # Tek bir önbellekli LLM; hem cevap üretimi hem varlık çıkarımı paylaşır.
     llm = CachedLanguageModel(OllamaLanguageModel(), InMemoryCache())
+
+    # BM25 indeksi bellek-içidir; kalıcı depoda zaten duran parçalarla açılışta
+    # yeniden kurulur. Aksi hâlde sunucu yeniden başladığında melez arama tek
+    # ayak (yalnızca anlamsal) kalır ve tam terim aramaları zayıflar.
+    keyword_index = InMemoryKeywordIndex()
+    existing = vectors.all_chunks()
+    if existing:
+        keyword_index.index(existing)
+
     return GraphRAGCore(
         loader=AutoDocumentLoader(),
         llm=llm,
         vectors=vectors,
         graph=graph,
-        extractor=LlmEntityExtractor(llm),
+        # LLM çıkarımı süzgeçten geçer: IBAN/TCKN/adres/kod/başlık gibi
+        # adaylar grafa varlık olarak girmez.
+        extractor=FilteredEntityExtractor(LlmEntityExtractor(llm)),
         privacy=KvkkPiiRedactor(audit_log),
         chunker=SlidingWindowChunker(),
-        keyword_index=InMemoryKeywordIndex(),
+        keyword_index=keyword_index,
+        audit_log=audit_log,
     )

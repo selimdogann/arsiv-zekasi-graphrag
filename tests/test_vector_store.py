@@ -55,3 +55,13 @@ def test_top_k_sonuc_sayisini_sinirlar():
     store = _kurulu_depo()
     sonuclar = store.search((1.0, 0.0), top_k=2)
     assert len(sonuclar) == 2
+
+
+def test_count_parca_sayisini_verir():
+    assert _kurulu_depo().count() == 4
+
+
+def test_all_chunks_tum_parcalari_verir():
+    # BM25 indeksinin açılışta yeniden kurulabilmesi buna dayanır.
+    chunks = _kurulu_depo().all_chunks()
+    assert {c.chunk_id for c in chunks} == {"A", "B", "C", "D"}

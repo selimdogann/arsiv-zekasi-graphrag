@@ -43,7 +43,7 @@ da üçüncü taraf buluta gitmez — Türk kurumsal/hukuki müşteriler için *
 - **Kalıcılık:** PostgreSQL + pgvector (tek veritabanı; vektör + graf + denetim)
 - **API + Web arayüzü:** FastAPI REST API ve basit bir web arayüzü
 - **Yerel LLM:** Ollama (`qwen2.5:7b` sohbet, `bge-m3` çok dilli embedding)
-- **Kalite güvencesi:** ~70 otomatik test + GitHub Actions CI
+- **Kalite güvencesi:** 120 otomatik test + GitHub Actions CI
 
 ## Mimari
 
@@ -61,10 +61,74 @@ graphrag/
 └── composition.py    # Bağımlılıkların bağlandığı tek yer
 ```
 
+### Bağımlılık yönü
+
+Altın kural: **oklar hep içe doğrudur.** Dış katmanlar iç katmana bağımlıdır;
+domain hiçbir somut teknolojiyi bilmez.
+
+```mermaid
+flowchart RL
+    A["<b>Application</b><br/>GraphRAGCore<br/><i>ingest · answer · find_connection</i>"]
+    I["<b>Infrastructure</b><br/>Ollama · PostgreSQL + pgvector · BM25<br/>KVKK maskeleme · belge okuyucular"]
+    D["<b>Domain</b><br/>Entity'ler + Portlar (I...)<br/><i>saf kurallar, teknoloji yok</i>"]
+    C["composition.py<br/><i>tek bağlama noktası</i>"]
+
+    A -- "bağımlı" --> D
+    I -- "portları uygular" --> D
+    C -. "somut sınıfları seçer" .-> A
+    C -.-> I
+```
+
+### Sorgu akışı
+
+Belge yükleme iki indeksi birden besler; soru sorulduğunda ikisi ayrı ayrı
+aranıp **RRF** ile birleştirilir ve cevap yalnızca bulunan parçalara dayanır.
+
+```mermaid
+flowchart TD
+    subgraph ING["1 · Belge yükleme (ingest)"]
+        DOC["Belge<br/>.txt · .pdf · .docx"] --> PII["KVKK maskeleme<br/>TCKN/VKN/IBAN → takma ad"]
+        PII --> CHK["Parçalama<br/>(örtüşmeli chunking)"]
+        CHK --> EMB["Embedding<br/>bge-m3"]
+        CHK --> BMI["BM25 indeksleme"]
+    end
+
+    EMB --> VS[("Vektör deposu<br/>pgvector")]
+    BMI --> KS[("Anahtar kelime<br/>indeksi")]
+
+    subgraph SOR["2 · Sorgu"]
+        Q["Soru"] --> QV["Anlamsal arama<br/>top-10"]
+        Q --> QK["Anahtar kelime arama<br/>top-10"]
+    end
+
+    VS --> QV
+    KS --> QK
+    QV --> RRF["RRF<br/>(Reciprocal Rank Fusion)"]
+    QK --> RRF
+    RRF --> CTX["En iyi 3 parça<br/>= BAĞLAM"]
+    CTX --> LLM["LLM<br/>qwen2.5:7b"]
+    LLM --> ANS["Cevap<br/>+ kaynak gösterimi"]
+```
+
+> **Neden melez?** Anlamsal arama eş anlamlıları yakalar ama tam terimleri
+> (sözleşme no, madde no) bulanıklaştırır; BM25 tam terimde güçlü, eş anlamlıda
+> zayıftır. RRF, farklı ölçekli skorları sıra numarasıyla birleştirir.
+
 ## Teknoloji yığını
 
 Python · FastAPI · PostgreSQL + pgvector · SQLAlchemy · Ollama (qwen2.5:7b,
 bge-m3) · rank-bm25 · pytest · Docker · GitHub Actions
+
+## Ön koşullar
+
+| Gereksinim | Durum | Not |
+|---|---|---|
+| **Python 3.x** | Zorunlu | Sanal ortam (`venv`) önerilir |
+| **[Ollama](https://ollama.com)** | Zorunlu | Kurulu **ve çalışır** olmalı (`ollama serve`); modeller yerelde çalışır |
+| **Docker** | Opsiyonel | Yalnızca kalıcı depolama (PostgreSQL + pgvector) için |
+
+> Docker kurmazsanız sistem **bellek-içi** modda tam olarak çalışır; yalnızca
+> veriler uygulama kapanınca kaybolur.
 
 ## Kurulum & Çalıştırma
 
@@ -96,18 +160,79 @@ uvicorn graphrag.api:app --reload
 - Web arayüzü: <http://localhost:8000/app/>
 - Otomatik API dokümanı (Swagger UI): <http://localhost:8000/docs>
 
-### 5. Uçtan uca demo (CLI)
+### 5. Arşivi sıfırlama (gerektiğinde)
 ```bash
-PYTHONPATH=. python3 examples/demo.py
+DATABASE_URL="postgresql+psycopg://graphrag:graphrag@localhost:5432/graphrag" \
+    python3 scripts/reset_archive.py
 ```
+> Tüm belge parçalarını, grafı ve denetim kayıtlarını siler. Sistem hazır/örnek
+> belge içermez; tek veri kaynağı sizin yüklediğiniz belgelerdir.
 
 ### 6. Testler
 ```bash
 python -m pytest
 ```
+> 120 test; `DATABASE_URL` tanımlı değilse 5 PostgreSQL testi atlanır.
+
+## Örnek kullanım
+
+`ornek_belgeler/` klasöründe, sistemi denemek için hazırlanmış **5 sentetik
+kurumsal belge** vardır (sözleşme, toplantı tutanağı, fizibilite raporu,
+kurumsal yazışma, İK notu). İçlerindeki kişiler, şirketler ve numaralar
+tamamen uydurmadır — gerçek kişisel veri içermez.
+
+### 1) Belgeleri yükleyin
+Web arayüzünde (<http://localhost:8000/app/>) **01 · Belge Yükle** kartına
+`ornek_belgeler/` içindeki dosyaları sürükleyin. Ya da terminalden:
+
+```bash
+for f in ornek_belgeler/*.txt; do
+  curl -s -X POST http://localhost:8000/upload -F "files=@$f" > /dev/null
+done
+```
+
+### 2) Soru sorun (RAG + kaynak gösterimi)
+```bash
+curl -s -X POST http://localhost:8000/ask \
+  -H "Content-Type: application/json" \
+  -d '{"question":"Gamma Danışmanlık ne iş yaptı?"}'
+```
+Cevapla birlikte **hangi belgeden geldiği** de döner:
+```json
+{
+  "answer": "Gamma Danışmanlık, Proje Zeus kapsamında fizibilite çalışmasını yürüttü.",
+  "sources": [{ "document_name": "03_gamma_fizibilite_raporu.txt", "text": "FİZİBİLİTE RAPORU …" }]
+}
+```
+> Cevabın ifadesi çalıştırmadan çalıştırmaya değişebilir (LLM üretimi
+> belirlenimci değildir); `sources` ise her zaman cevabın dayandığı gerçek
+> belgeyi gösterir.
+
+### 3) Gizli bağlantıyı bulun (grafın asıl değeri)
+"Acme Holding" ile "Gamma Danışmanlık" **aynı belgede geçmez**; ortak
+"Proje Zeus" üzerinden dolaylı bağlıdırlar:
+
+```bash
+curl -s -G http://localhost:8000/connection \
+  --data-urlencode "source=Acme Holding" \
+  --data-urlencode "target=Gamma Danışmanlık"
+```
+```json
+{ "result": "Bağlantı bulundu: Acme Holding -> Proje Zeus -> Gamma Danışmanlık  (güven: 0.25)" }
+```
+
+### 4) KVKK denetim kaydını görün
+Belgelerdeki TCKN, VKN ve IBAN değerleri **işlemeye girmeden** maskelenir:
+
+```bash
+curl -s http://localhost:8000/audit
+```
+Örnek belgelerde 7 kişisel veri maskelenir (3 TCKN, 2 IBAN, 2 VKN). Denetim
+kaydı yalnızca veri **tipini** ve takma adı tutar; orijinal değer hiçbir yerde
+saklanmaz (veri minimizasyonu).
 
 ## Durum
 
 Çalışan, uçtan uca bir sistem: belge yükleme → hibrit arama → graf bağlantı
-bulma → yerel LLM cevabı; kalıcı PostgreSQL, REST API + web arayüzü, ~70
+bulma → yerel LLM cevabı; kalıcı PostgreSQL, REST API + web arayüzü, 120
 otomatik test ve sürekli entegrasyon (CI). Aktif olarak geliştirilmektedir.
