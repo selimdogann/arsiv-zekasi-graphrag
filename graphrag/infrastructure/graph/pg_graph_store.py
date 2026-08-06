@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from typing import List
 
-from sqlalchemy import Engine, select
+from sqlalchemy import Engine, func, select
 from sqlalchemy.orm import Session
 
 from graphrag.domain.entities import GraphEdge, GraphNode
@@ -53,3 +53,13 @@ class PostgresGraphStore(IGraphStore):
             if row is None:
                 raise KeyError(node_id)
             return GraphNode(node_id=row.node_id, label=row.label)
+
+    def all_nodes(self) -> List[GraphNode]:
+        with Session(self._engine) as session:
+            rows = session.execute(select(GraphNodeRow)).scalars().all()
+            return [GraphNode(node_id=r.node_id, label=r.label) for r in rows]
+
+    def edge_count(self) -> int:
+        with Session(self._engine) as session:
+            return session.execute(
+                select(func.count()).select_from(GraphEdgeRow)).scalar_one()

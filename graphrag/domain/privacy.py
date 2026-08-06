@@ -18,6 +18,8 @@ class PIIType(str, Enum):
 
     PERSON = "PERSON"
     TCKN = "TCKN"
+    VKN = "VKN"
+    IBAN = "IBAN"
     PHONE = "PHONE"
     EMAIL = "EMAIL"
 

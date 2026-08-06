@@ -11,3 +11,6 @@ __pycache__/
 # Editör ayar klasörleri
 .vscode/
 .idea/
+
+# Kullanıcının yüklediği belgeler
+uploads/

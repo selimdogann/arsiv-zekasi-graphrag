@@ -38,3 +38,9 @@ class InMemoryVectorStore(IVectorStore):
             scored.append((self._chunks[chunk_id], similarity))
         scored.sort(key=lambda pair: pair[1], reverse=True)
         return scored[:top_k]
+
+    def count(self) -> int:
+        return len(self._chunks)
+
+    def all_chunks(self) -> List[Chunk]:
+        return list(self._chunks.values())
