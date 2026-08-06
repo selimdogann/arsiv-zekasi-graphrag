@@ -15,12 +15,20 @@ from graphrag.domain.text_tr import (
 import math
 from typing import List
 
-from graphrag.domain.entities import Chunk, Document, DocumentState, GraphEdge, GraphNode
+from graphrag.domain.entities import (
+    Chunk,
+    Document,
+    DocumentInfo,
+    DocumentState,
+    GraphEdge,
+    GraphNode,
+)
 from graphrag.domain.exceptions import PathNotFoundError
 from graphrag.application.fusion import reciprocal_rank_fusion
 from graphrag.domain.interfaces import (
     IAuditLog,
     IChunker,
+    IDocumentCatalog,
     IDocumentLoader,
     IEntityExtractor,
     IGraphStore,
@@ -39,7 +47,7 @@ class GraphRAGCore:
                  vectors: IVectorStore, graph: IGraphStore,
                  extractor: IEntityExtractor, privacy: IPrivacyFilter,
                  chunker: IChunker, keyword_index: IKeywordIndex,
-                 audit_log: IAuditLog) -> None:
+                 audit_log: IAuditLog, catalog: IDocumentCatalog) -> None:
         self._loader = loader
         self._llm = llm
         self._vectors = vectors
@@ -50,6 +58,7 @@ class GraphRAGCore:
         self._chunker = chunker
         self._keyword = keyword_index
         self._audit = audit_log
+        self._catalog = catalog
 
     def ingest(self, uri: str) -> Document:
         document = self._loader.load(uri)
@@ -105,6 +114,15 @@ class GraphRAGCore:
         document.transition_to(
             DocumentState.PARSED,
             note=f"metin hazır, {len(entity_names)} varlık çıkarıldı")
+
+        # Belge kaydı: adı ve durumu kalıcı olarak sakla — böylece sunucu
+        # yeniden başlasa da liste ve kaynak gösterimindeki ad korunur.
+        self._catalog.add(DocumentInfo(
+            document_id=document.document_id,
+            name=uri.rsplit("/", 1)[-1],      # yalnızca dosya adı
+            state=document.state.value,
+            created_at=document.created_at.isoformat(timespec="seconds"),
+        ))
         return document
 
     def answer(self, question: str) -> str:
@@ -157,11 +175,20 @@ class GraphRAGCore:
     def stats(self) -> dict:
         """Arşivin özet istatistikleri (gösterge paneli için)."""
         return {
+            "documents": len(self._catalog.all()),
             "chunks": self._vectors.count(),
             "entities": len(self._graph.all_nodes()),
             "relations": self._graph.edge_count(),
             "pii_masked": len(self._audit.events()),
         }
+
+    def documents(self) -> List[dict]:
+        """Arşivdeki belgeler (en yeniden eskiye)."""
+        return [
+            {"document_id": d.document_id, "name": d.name,
+             "state": d.state, "uploaded_at": d.created_at}
+            for d in self._catalog.all()
+        ]
 
     def entities(self) -> List[str]:
         """Graftaki tüm varlıkların okunabilir adları (alfabetik)."""

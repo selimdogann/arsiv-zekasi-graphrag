@@ -18,6 +18,15 @@ class Base(DeclarativeBase):
     pass
 
 
+class DocumentRow(Base):
+    __tablename__ = "documents"
+
+    document_id: Mapped[str] = mapped_column(String, primary_key=True)
+    name: Mapped[str] = mapped_column(String)
+    state: Mapped[str] = mapped_column(String)
+    created_at: Mapped[str] = mapped_column(String, index=True)
+
+
 class ChunkRow(Base):
     __tablename__ = "chunks"
 

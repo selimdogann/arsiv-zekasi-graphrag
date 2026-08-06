@@ -110,3 +110,18 @@ class Chunk:
     text: str
     embedding: Tuple[float, ...]
 
+
+@dataclass(frozen=True)
+class DocumentInfo:
+    """Arşive alınmış bir belgenin kayıt bilgisi (metni içermez).
+
+    Belge parçaları ve graf kalıcı olduğu hâlde belgenin ADI yalnızca bellekte
+    tutuluyordu; sunucu yeniden başlayınca liste boşalıyor ve kaynak
+    gösteriminde belge adı kayboluyordu. Bu kayıt, adı da kalıcı hâle getirir.
+    """
+
+    document_id: str
+    name: str
+    state: str
+    created_at: str
+
