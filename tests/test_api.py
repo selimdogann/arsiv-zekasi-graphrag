@@ -30,7 +30,12 @@ class _SahteCore:
         return f"{source} -> {target}"
 
     def stats(self):
-        return {"chunks": 3, "entities": 4, "relations": 8, "pii_masked": 1}
+        return {"documents": 1, "chunks": 3, "entities": 4,
+                "relations": 8, "pii_masked": 1}
+
+    def documents(self):
+        return [{"document_id": "doc-1", "name": "belge.txt",
+                 "state": "PARSED", "uploaded_at": "2026-01-01T00:00:00"}]
 
     def entities(self):
         return ["Acme Holding", "Proje Zeus"]
@@ -60,8 +65,7 @@ def test_documents_ingest_cagirir():
     assert r.json()["state"] == "PARSED"
 
 
-def test_documents_listesi_yuklenenleri_doner():
-    client.post("/documents", json={"uri": "klasor/belge.txt"})
+def test_documents_listesi_arsivdekileri_doner():
     r = client.get("/documents")
     assert r.status_code == 200
     assert any(d["name"] == "belge.txt" for d in r.json()["documents"])

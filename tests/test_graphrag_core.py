@@ -17,6 +17,7 @@ from graphrag.application.graphrag_core import GraphRAGCore
 from graphrag.domain.entities import Document, DocumentState
 from graphrag.domain.interfaces import IDocumentLoader, ILanguageModel
 from graphrag.domain.text_tr import canonical_key
+from graphrag.infrastructure.catalog.memory_catalog import InMemoryDocumentCatalog
 from graphrag.infrastructure.chunking.text_chunker import SlidingWindowChunker
 from graphrag.infrastructure.graph.graph_store import InMemoryGraphStore
 from graphrag.infrastructure.keyword.bm25_index import InMemoryKeywordIndex
@@ -70,6 +71,7 @@ def _core_kur():
         chunker=SlidingWindowChunker(),
         keyword_index=InMemoryKeywordIndex(),
         audit_log=audit_log,
+        catalog=InMemoryDocumentCatalog(),
     )
     return core, loader, llm, vectors, graph
 
@@ -196,3 +198,27 @@ def test_audit_events_maskelemeyi_raporlar():
     assert olaylar[0]["placeholder"] == "[TCKN_1]"
     # Veri minimizasyonu: ham TCKN denetim kaydında ASLA görünmemeli
     assert all("10000000146" not in str(o) for o in olaylar)
+
+
+# ------------------------------------------------------- belge kaydı (katalog)
+
+def test_ingest_belgeyi_kataloga_kaydeder():
+    core, loader, _llm, _vec, _graph = _core_kur()
+    loader.texts["klasor/sozlesme.txt"] = "Acme Holding ile anlaşma yapıldı."
+    doc = core.ingest("klasor/sozlesme.txt")
+
+    kayitlar = core.documents()
+
+    assert len(kayitlar) == 1
+    assert kayitlar[0]["document_id"] == doc.document_id
+    assert kayitlar[0]["name"] == "sozlesme.txt"     # yalnızca dosya adı
+    assert kayitlar[0]["state"] == "PARSED"
+
+
+def test_stats_belge_sayisini_katalogdan_alir():
+    core, loader, _llm, _vec, _graph = _core_kur()
+    loader.texts["a.txt"] = "Acme Holding."
+    loader.texts["b.txt"] = "Delta Lojistik."
+    core.ingest("a.txt"); core.ingest("b.txt")
+
+    assert core.stats()["documents"] == 2

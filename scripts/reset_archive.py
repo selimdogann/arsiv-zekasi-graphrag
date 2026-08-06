@@ -20,7 +20,7 @@ import sys
 # Betik proje kökünden bağımsız çalışabilsin diye kök dizini yola ekle.
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-TABLOLAR = ("chunks", "graph_nodes", "graph_edges", "audit_events")
+TABLOLAR = ("documents", "chunks", "graph_nodes", "graph_edges", "audit_events")
 
 
 def main() -> int:
