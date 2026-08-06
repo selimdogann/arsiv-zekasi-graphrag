@@ -26,8 +26,9 @@ class _SahteCore:
                 "sources": [{"chunk_id": "doc-1#0", "document_id": "doc-1",
                              "text": "kaynak metni"}]}
 
-    def find_connection(self, source, target):
-        return f"{source} -> {target}"
+    def find_connection_detailed(self, source, target):
+        return {"found": True, "nodes": [source, target],
+                "relations": ["anlaştı"], "confidence": 0.5, "message": ""}
 
     def stats(self):
         return {"documents": 1, "chunks": 3, "entities": 4,
@@ -86,10 +87,13 @@ def test_ask_eksik_alan_422_doner():
     assert r.status_code == 422
 
 
-def test_connection_kaynak_ve_hedefi_gecirir():
+def test_connection_yapilandirilmis_sonuc_doner():
     r = client.get("/connection", params={"source": "A", "target": "B"})
     assert r.status_code == 200
-    assert r.json() == {"result": "A -> B"}
+    body = r.json()
+    assert body["found"] is True
+    assert body["nodes"] == ["A", "B"]
+    assert body["relations"] == ["anlaştı"]
 
 
 def test_stats_ozet_doner():

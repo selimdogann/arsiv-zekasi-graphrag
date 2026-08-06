@@ -34,6 +34,7 @@ class PostgresGraphStore(IGraphStore):
                 target_id=edge.target_id,
                 weight=edge.weight,
                 confidence=edge.confidence,
+                relation=edge.relation,
             ))
             session.commit()
 
@@ -43,7 +44,7 @@ class PostgresGraphStore(IGraphStore):
                 select(GraphEdgeRow).where(GraphEdgeRow.source_id == node_id)
             ).scalars().all()
             return [
-                GraphEdge(r.source_id, r.target_id, r.weight, r.confidence)
+                GraphEdge(r.source_id, r.target_id, r.weight, r.confidence, r.relation or "")
                 for r in rows
             ]
 
