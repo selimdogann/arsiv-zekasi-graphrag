@@ -131,6 +131,22 @@
       border-bottom: 1px solid var(--line);
     }
     .sb-right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+
+    /* ===== API anahtarı kutusu ===== */
+    .keybox { position: relative; }
+    .keybtn { cursor: pointer; font-family: inherit; }
+    .keybtn svg { width: 12px; height: 12px; }
+    .keybtn.set { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 30%, transparent); background: var(--ok-soft); }
+    .keybtn.missing { color: var(--amber); border-color: color-mix(in srgb, var(--amber) 34%, transparent); background: var(--amber-soft); }
+    .keypanel {
+      position: absolute; right: 0; top: calc(100% + 6px); z-index: 50; width: 268px;
+      background: var(--surface); border: 1px solid var(--line-strong);
+      border-radius: var(--radius); box-shadow: var(--shadow); padding: 13px;
+    }
+    .keypanel label { margin-top: 0; }
+    .keyrow { display: flex; gap: 8px; margin-top: 10px; }
+    .keyrow button { flex: 1 1 auto; padding: 8px 12px; font-size: .84rem; margin: 0; }
+    .keyhint { margin: 9px 0 0; color: var(--faint); font-size: .71rem; line-height: 1.4; }
     .menu-btn { display: none; background: transparent; color: var(--muted); border: 1px solid var(--line-strong); padding: 6px; box-shadow: none; }
     .menu-btn svg { width: 17px; height: 17px; }
     .menu-btn:hover { background: var(--surface-2); color: var(--ink); }
@@ -504,6 +520,22 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="18" y2="18"/></svg>
     </button>
     <div class="sb-right">
+      <!-- API anahtarı: yalnızca tarayıcıda (localStorage) tutulur -->
+      <div class="keybox">
+        <button type="button" class="pill keybtn" id="keyBtn" title="API anahtarı">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          <span id="keyLabel">Anahtar</span>
+        </button>
+        <div class="keypanel" id="keyPanel" hidden>
+          <label for="apiKeyInput">API anahtarı (X-API-Key)</label>
+          <input id="apiKeyInput" type="password" autocomplete="off" placeholder="anahtarı yapıştırın" />
+          <div class="keyrow">
+            <button type="button" id="keySave">Kaydet</button>
+            <button type="button" class="ghost" id="keyClear">Temizle</button>
+          </div>
+          <p class="keyhint">Anahtar yalnızca bu tarayıcıda saklanır, sunucuya yalnızca istek başlığında gönderilir.</p>
+        </div>
+      </div>
       <span class="pill" id="pillLlm"><span class="dot"></span>Ollama<span class="model" id="chatModel"></span></span>
       <span class="pill hide-sm" id="pillEmbed"><span class="dot"></span>Embedding<span class="model" id="embedModel"></span></span>
       <span class="pill" id="pillDb"><span class="dot"></span><span id="dbText">PostgreSQL</span></span>
@@ -655,8 +687,19 @@
   <script>
     /* ---------- yardımcılar ---------- */
     const $ = id => document.getElementById(id);
+
+    // --- API anahtarı: yalnızca tarayıcıda saklanır, her isteğe başlık olarak eklenir
+    const anahtarOku = () => localStorage.getItem("apiKey") || "";
+
     const api = async (url, opts) => {
-      const r = await fetch(url, opts);
+      const secenekler = { ...(opts || {}) };
+      const anahtar = anahtarOku();
+      if (anahtar) secenekler.headers = { ...(secenekler.headers || {}), "X-API-Key": anahtar };
+      const r = await fetch(url, secenekler);
+      if (r.status === 401) {                 // anahtar yok ya da yanlış
+        keyPanelAc(true);
+        throw new Error("API anahtarı gerekli — sağ üstten girin");
+      }
       if (!r.ok) throw new Error("sunucu " + r.status);
       return r.json();
     };
@@ -678,6 +721,42 @@
     }
     const showErr = (el, m) => { el.innerHTML = '<div class="answer err">Hata: ' + m + '</div>'; };
 
+    /* ---------- API anahtarı kutusu ---------- */
+    let authAcik = false;          // sunucuda doğrulama açık mı (/ ucundan gelir)
+
+    function keyRozetGuncelle() {
+      const btn = $("keyBtn"), etiket = $("keyLabel"), anahtar = anahtarOku();
+      btn.classList.remove("set", "missing");
+      if (!authAcik) { etiket.textContent = "Anahtar gerekmiyor"; return; }
+      if (anahtar) { btn.classList.add("set"); etiket.textContent = "Anahtar tanımlı"; }
+      else { btn.classList.add("missing"); etiket.textContent = "Anahtar gerekli"; }
+    }
+
+    function keyPanelAc(ac) {
+      $("keyPanel").hidden = !ac;
+      if (ac) { $("apiKeyInput").value = anahtarOku(); $("apiKeyInput").focus(); }
+    }
+
+    function initKeyBox() {
+      $("keyBtn").addEventListener("click", () => keyPanelAc($("keyPanel").hidden));
+      $("keySave").addEventListener("click", async () => {
+        localStorage.setItem("apiKey", $("apiKeyInput").value.trim());
+        keyPanelAc(false); keyRozetGuncelle();
+        toast("Anahtar kaydedildi"); await refreshAll();
+      });
+      $("keyClear").addEventListener("click", () => {
+        localStorage.removeItem("apiKey");
+        $("apiKeyInput").value = ""; keyRozetGuncelle(); toast("Anahtar temizlendi");
+      });
+      $("apiKeyInput").addEventListener("keydown", e => {
+        if (e.key === "Enter") $("keySave").click();
+        if (e.key === "Escape") keyPanelAc(false);
+      });
+      document.addEventListener("click", e => {
+        if (!e.target.closest(".keybox")) keyPanelAc(false);
+      });
+    }
+
     /* ---------- sistem durumu (GERÇEK veri, /) ---------- */
     async function loadHealth() {
       try {
@@ -691,6 +770,9 @@
         // Depolama — DATABASE_URL tanımlı olsa bile gerçek bağlantı yoklanır
         $("pillDb").className = "pill " + (h.database ? "up" : (h.persistent ? "down" : ""));
         $("dbText").textContent = h.storage;
+        // Sunucuda doğrulama açık mı? Rozet buna göre değişir.
+        authAcik = !!h.auth_enabled;
+        keyRozetGuncelle();
       } catch (e) { /* sessiz geç */ }
     }
 
@@ -1066,6 +1148,7 @@
     }
 
     /* ---------- başlangıç ---------- */
+    initKeyBox();
     initCombos();
     loadHealth(); refreshAll();
     setInterval(loadHealth, 20000);

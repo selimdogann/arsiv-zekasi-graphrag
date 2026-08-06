@@ -15,11 +15,12 @@ Sonra tarayıcıda: http://localhost:8000/app/
 from __future__ import annotations
 
 import os
+import secrets
 from datetime import datetime, timezone
-from typing import List
+from typing import List, Optional
 
 import requests
-from fastapi import Depends, FastAPI, File, UploadFile
+from fastapi import Depends, FastAPI, File, Header, HTTPException, UploadFile
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -45,6 +46,30 @@ def get_core() -> GraphRAGCore:
     if _core is None:
         _core = build_core()
     return _core
+
+
+def require_api_key(x_api_key: Optional[str] = Header(default=None)) -> None:
+    """Veri uçlarını API anahtarıyla korur (`X-API-Key` başlığı).
+
+    `API_KEY` ortam değişkeni tanımlı DEĞİLSE doğrulama kapalıdır; bu, yerel
+    geliştirmeyi kolaylaştırır ve sağlık ucunda `auth_enabled: false` olarak
+    açıkça bildirilir. On-premise kurulumda `API_KEY` mutlaka verilmelidir.
+
+    Karşılaştırma `secrets.compare_digest` ile yapılır: anahtarı karakter
+    karakter tahmin etmeye yarayan zamanlama (timing) saldırısını önler.
+    """
+    beklenen = get_settings().api_key
+    if beklenen is None:
+        return
+    if not x_api_key or not secrets.compare_digest(x_api_key, beklenen):
+        raise HTTPException(
+            status_code=401,
+            detail="Geçersiz veya eksik API anahtarı (X-API-Key başlığı).",
+        )
+
+
+# Korunan uçlarda ortak kullanılan bağımlılık listesi
+_KORUMALI = [Depends(require_api_key)]
 
 
 # --- İstek gövdelerinin (JSON) şekli: Pydantic modelleri ---------------------
@@ -111,10 +136,12 @@ def health():
         "database": _database_up(database_url) if database_url else False,
         "chat_model": CHAT_MODEL,
         "embed_model": EMBED_MODEL,
+        # Doğrulama kapalıysa arayüz ve yönetici bunu açıkça görebilsin
+        "auth_enabled": get_settings().api_key is not None,
     }
 
 
-@app.get("/stats")
+@app.get("/stats", dependencies=_KORUMALI)
 def stats(core: GraphRAGCore = Depends(get_core)):
     """Arşiv özeti: parça, varlık, ilişki ve maskelenen kişisel veri sayısı."""
     data = core.stats()
@@ -124,13 +151,13 @@ def stats(core: GraphRAGCore = Depends(get_core)):
 
 # --- Belgeler ----------------------------------------------------------------
 
-@app.get("/documents")
+@app.get("/documents", dependencies=_KORUMALI)
 def list_documents():
     """Bu oturumda yüklenen belgelerin listesi."""
     return {"documents": _documents}
 
 
-@app.post("/documents")
+@app.post("/documents", dependencies=_KORUMALI)
 def ingest_document(req: IngestRequest, core: GraphRAGCore = Depends(get_core)):
     """Sunucudaki bir belge yolunu ingest eder (örnek belgeler için)."""
     document = core.ingest(req.uri)
@@ -139,7 +166,7 @@ def ingest_document(req: IngestRequest, core: GraphRAGCore = Depends(get_core)):
             "document": entry}
 
 
-@app.post("/upload")
+@app.post("/upload", dependencies=_KORUMALI)
 async def upload_documents(files: List[UploadFile] = File(...),
                            core: GraphRAGCore = Depends(get_core)):
     """Yüklenen bir veya birden çok dosyayı kaydedip ingest eder."""
@@ -161,7 +188,7 @@ async def upload_documents(files: List[UploadFile] = File(...),
 
 # --- Sorgular ----------------------------------------------------------------
 
-@app.post("/ask")
+@app.post("/ask", dependencies=_KORUMALI)
 def ask(req: AskRequest, core: GraphRAGCore = Depends(get_core)):
     """Arşive bir soru sorar (RAG) — cevabı KAYNAKLARIYLA birlikte döndürür."""
     result = core.answer_with_sources(req.question)
@@ -173,19 +200,19 @@ def ask(req: AskRequest, core: GraphRAGCore = Depends(get_core)):
     return result
 
 
-@app.get("/connection")
+@app.get("/connection", dependencies=_KORUMALI)
 def connection(source: str, target: str, core: GraphRAGCore = Depends(get_core)):
     """İki varlık arasındaki graf bağlantısını bulur."""
     return {"result": core.find_connection(source, target)}
 
 
-@app.get("/entities")
+@app.get("/entities", dependencies=_KORUMALI)
 def entities(core: GraphRAGCore = Depends(get_core)):
     """Graftaki tüm varlıklar (varlık gezgini ve otomatik tamamlama için)."""
     return {"entities": core.entities()}
 
 
-@app.get("/audit")
+@app.get("/audit", dependencies=_KORUMALI)
 def audit(core: GraphRAGCore = Depends(get_core)):
     """KVKK denetim kaydı: hangi tip kişisel veri, ne zaman maskelendi."""
     return {"events": core.audit_events()}
