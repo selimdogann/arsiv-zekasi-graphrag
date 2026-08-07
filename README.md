@@ -81,6 +81,16 @@ python3 scripts/baslat.py
 `baslat.py` her şeyi sırayla açar (Ollama → veritabanı → sunucu), modelleri
 önden ısıtır ve sonunda arayüz adresini + API anahtarını yazdırır.
 
+Durdurmak için:
+
+```bash
+python3 scripts/durdur.py
+```
+
+> Sunucu terminalden **bağımsız** başlatılır — böylece betik bitince terminal
+> serbest kalır ve terminali kapatsanız da sistem çalışmaya devam eder.
+> Bu yüzden Ctrl+C sunucuyu durdurmaz; durdurmak için yukarıdaki betiği kullanın.
+
 > **Docker kurmadıysanız** sorun değil — sistem otomatik olarak bellek-içi
 > modda çalışır, yalnızca veriler uygulama kapanınca kaybolur.
 
@@ -230,5 +240,7 @@ açıkça ortaya koyar.
 ## Diğer komutlar
 
 ```bash
+python3 scripts/baslat.py            # tüm servisleri başlat
+python3 scripts/durdur.py            # servisleri durdur (--hepsi: Ollama dahil)
 python3 scripts/reset_archive.py     # arşivi tamamen sıfırla
 ```
