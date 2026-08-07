@@ -1,8 +1,15 @@
 """
-SimpleEntityExtractor — regex tabanlı, deterministik varlık çıkarımı.
+SimpleEntityExtractor — regex tabanlı, DETERMİNİSTİK varlık çıkarımı.
 
-LLM'e ihtiyaç duymadan, büyük harfle başlayan kelime gruplarını (özel isim
-adayları) yakalar. Basit ama üretime hazır bir başlangıç noktası.
+Büyük harfle başlayan kelime gruplarını (özel isim adayları) yakalar; LLM'e
+ihtiyaç duymaz.
+
+NEREDE KULLANILIR? Üretimde `LlmEntityExtractor` tercih edilir (bağlamı anlar,
+daha temiz sonuç verir). Bu sınıf ise `IEntityExtractor` portunun deterministik
+ikinci uygulamasıdır ve **entegrasyon testlerinde** kullanılır: testlerin
+çalışması için ne Ollama'ya ne ağa ihtiyaç duyulur, sonuç her çalıştırmada
+aynıdır. Aynı porta iki farklı adaptör takılabilmesi, Ports & Adapters
+mimarisinin somut karşılığıdır.
 """
 from __future__ import annotations
 
