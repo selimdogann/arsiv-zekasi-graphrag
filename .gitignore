@@ -24,6 +24,5 @@ DEMO.md
 # Çalışma zamanı günlükleri
 *.log
 
-# Kişisel notlar (görseller hariç)
-docs/*
-!docs/gorseller/
+# Kişisel çalışma notları (repoya girmez)
+docs/

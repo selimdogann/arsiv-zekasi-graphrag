@@ -6,32 +6,44 @@ belgelerdeki varlıklar arasındaki **gizli bağlantıları** keşfedebilirsiniz
 
 Yapay zekâ yerelde (Ollama) çalışır; **hiçbir veri buluta gönderilmez.**
 
-![Arayüz](docs/gorseller/arayuz.png)
-
 ---
 
 ## Çözdüğü problem
 
-İki ayrı sözleşme düşünün:
+Arşivdeki iki ayrı belge (`ornek_belgeler/` klasöründen):
 
 ```
-sozlesme_A.txt :  "Acme Holding, Proje Zeus için Beta Firması ile anlaştı."
-sozlesme_B.txt :  "Proje Zeus kapsamında Gamma Danışmanlık teknik destek verdi."
+01_acme_danismanlik_sozlesmesi.txt
+    "ACME HOLDİNG A.Ş. ... PROJE ZEUS için stratejik danışmanlık
+     hizmeti almak üzere işbu sözleşmeyi imzalamıştır."
+
+02_proje_zeus_toplanti_tutanagi.txt
+    "... fizibilite raporunun hazırlanması işinin GAMMA DANIŞMANLIK
+     LTD. ŞTİ. tarafından yürütülmesine karar verilmiştir."
 ```
 
 **"Acme Holding ile Gamma Danışmanlık bağlantılı mı?"**
 
 Bu iki firma **hiçbir belgede birlikte geçmiyor** — Ctrl+F veya klasik arama
-bulamaz. Sistem, belgelerden çıkardığı bilgi grafı üzerinde dolaylı ilişkiyi
-bulur:
+bulamaz. Sistem, belgelerden çıkardığı bilgi grafı üzerinde ikisini birbirine
+bağlayan ara halkayı bulur:
 
-```
-Acme Holding ──anlaştı──▶ Proje Zeus ──────▶ Gamma Danışmanlık   (güven: 0.40)
+```mermaid
+flowchart LR
+    A["Acme Holding"] -- "anlaştı" --> Z["Proje Zeus"]
+    Z -- "raporu hazırladı" --> G["Gamma Danışmanlık"]
 ```
 
-Sistem yalnızca "bağlılar" demez; ilişkinin **türünü** de metinden çıkarır.
-Bu bir yapay zekâ tahmini değildir: **Dijkstra algoritmasıyla** hesaplanan,
-deterministik ve açıklanabilir bir sonuçtur (0.02 saniye).
+`Birleşik güven: 0.64 · 2 adım · 0.02 saniye`
+
+Dikkat edilecek nokta: sistem yalnızca "bağlılar" demez, **her adımın ilişki
+türünü** de metinden çıkarır — böylece zincir okunabilir ve denetlenebilir olur.
+
+Sonuç bir yapay zekâ tahmini değildir. Graf üzerinde **Dijkstra algoritması**
+çalışır; kenar ağırlığı olarak güven skorunun `-log` değeri kullanılır. Bir
+yolun toplam güveni adımların çarpımı olduğundan, logaritma bu çarpımı toplama
+çevirir ve **en kısa yol = en güvenilir zincir** hâline gelir. Aynı soru her
+zaman aynı cevabı verir.
 
 ---
 
@@ -124,7 +136,7 @@ anahtarı yapıştırmanız yeterli (tarayıcı hatırlar).
 flowchart RL
     A["<b>Application</b><br/>GraphRAGCore<br/><i>ingest · answer · find_connection</i>"]
     I["<b>Infrastructure</b><br/>Ollama · PostgreSQL · BM25<br/>KVKK · belge okuyucular"]
-    D["<b>Domain</b><br/>Entity'ler + 11 Port<br/><i>saf kurallar, teknoloji yok</i>"]
+    D["<b>Domain</b><br/>Entity'ler + 12 Port<br/><i>saf kurallar, teknoloji yok</i>"]
     C["composition.py<br/><i>tek bağlama noktası</i>"]
 
     A -- "bağımlı" --> D
@@ -227,7 +239,7 @@ açıkça ortaya koyar.
 
 | Sınır | Bugünkü durum | Yapılabilecek |
 |---|---|---|
-| **İlişki yönü** | Etiket her iki yönde de aynı görünür; ters yön için fiil çevrilmez | Yöne göre ters fiil üretimi |
+| **İlişki yönü** | Etiket zincirde okunduğu yönde çevrilmez — yukarıdaki örnekte raporu hazırlayan aslında Gamma'dır, ok ise Zeus'tan çıkar | Kenarı yönüne göre çevirme (`hazırladı` ⇄ `hazırlandı`) |
 | **Ölçek** | 5 belgelik bir gösterim; büyük arşivle denenmedi | pgvector indeksleme (HNSW) + asenkron yükleme kuyruğu |
 | **Retrieval hassasiyeti** | Hibrit arama var, yeniden sıralayıcı (reranker) yok | Cross-encoder reranker — çok adaylı aramada isabeti artırır |
 | **Aktarım güvenliği** | API anahtarı HTTP üzerinden düz metin gider | Ters proxy arkasında HTTPS |
