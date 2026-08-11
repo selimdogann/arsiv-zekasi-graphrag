@@ -303,6 +303,13 @@
     .doc .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); flex: 0 0 auto; }
     .doc .name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .doc .tag { margin-left: auto; color: var(--ok); background: var(--ok-soft); font-size: .69rem; font-weight: 700; padding: 3px 9px; border-radius: var(--r-lg); }
+    /* Silme düğmesi: yıkıcı bir eylem olduğu için sessiz durur, üzerine
+       gelindiğinde kırmızıya döner — yanlışlıkla tıklamayı zorlaştırır. */
+    .doc .del { flex: 0 0 auto; display: grid; place-items: center; width: 28px; height: 28px; padding: 0; border: 1px solid transparent; border-radius: var(--r); background: transparent; color: var(--faint); box-shadow: none; cursor: pointer; transition: color .15s, background .15s, border-color .15s; }
+    .doc .del svg { width: 15px; height: 15px; }
+    .doc .del:hover:not(:disabled) { color: var(--err); background: var(--err-soft); border-color: color-mix(in srgb, var(--err) 30%, transparent); }
+    .doc .del:disabled { opacity: .45; cursor: default; }
+    .doc.silinen { opacity: .4; }
     .empty { color: var(--faint); font-size: .84rem; text-align: center; padding: 18px 10px; border: 1px dashed var(--line-strong); border-radius: var(--r); margin-top: 14px; }
 
     .result { margin-top: 16px; font-size: .92rem; }
@@ -587,7 +594,10 @@
       <!-- 01 · Belge Yükle -->
       <section class="card wide">
         <div class="card-head"><span class="num">01</span><h2>Belge Yükle</h2>
-          <span class="side"><button class="ghost" id="refreshBtn">Yenile</button></span>
+          <span class="side">
+            <button class="ghost" id="clearDocsBtn" hidden>Tümünü sil</button>
+            <button class="ghost" id="refreshBtn">Yenile</button>
+          </span>
         </div>
         <p class="hint">Bilgisayarınızdan bir veya birden çok dosya sürükleyin (.txt · .pdf · .docx).</p>
         <div class="dropzone" id="dropzone">
@@ -828,17 +838,61 @@
     }
 
     /* ---------- belgeler ---------- */
+    const COP_IKONU =
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" ' +
+      'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+      '<path d="M3 6h18"/><path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2"/>' +
+      '<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/>' +
+      '<path d="M10 11v6"/><path d="M14 11v6"/></svg>';
+
     function renderDocs(docs) {
       const list = $("docList"); list.innerHTML = "";
       $("docEmpty").hidden = docs.length > 0;
+      $("clearDocsBtn").hidden = docs.length === 0;
       docs.forEach(d => {
         const li = document.createElement("li");
         li.className = "doc";
-        li.innerHTML = '<span class="dot"></span><span class="name"></span><span class="tag">' + d.state + '</span>';
+        li.innerHTML =
+          '<span class="dot"></span><span class="name"></span>' +
+          '<span class="tag">' + d.state + '</span>' +
+          '<button class="del" type="button">' + COP_IKONU + '</button>';
         li.querySelector(".name").textContent = d.name;
+
+        const sil = li.querySelector(".del");
+        sil.title = d.name + " belgesini arşivden sil";
+        sil.setAttribute("aria-label", sil.title);
+        sil.addEventListener("click", () => belgeSil(d, li, sil));
         list.appendChild(li);
       });
     }
+
+    /* Silme geri alınamaz; bu yüzden önce onay istenir. */
+    async function belgeSil(d, li, btn) {
+      if (!confirm('"' + d.name + '" arşivden silinsin mi?\n\n' +
+                   'Belgenin metin parçaları ve yalnızca bu belgeden gelen ' +
+                   'varlık/ilişkiler de silinir. Bu işlem geri alınamaz.')) return;
+      btn.disabled = true; li.classList.add("silinen");
+      try {
+        await api("/documents/" + encodeURIComponent(d.document_id), { method: "DELETE" });
+        toast(d.name + " silindi");
+        await refreshAll();
+      } catch (e) {
+        btn.disabled = false; li.classList.remove("silinen");
+        toast("Silinemedi: " + e.message, true);
+      }
+    }
+
+    async function tumBelgeleriSil(btn) {
+      const sayi = $("docList").children.length;
+      if (!confirm("Arşivdeki " + sayi + " belgenin tamamı silinsin mi?\n\n" +
+                   "Bu işlem geri alınamaz.")) return;
+      await run(btn, async () => {
+        const r = await api("/documents", { method: "DELETE" });
+        toast(r.deleted + " belge silindi");
+        await refreshAll();
+      });
+    }
+
     async function loadDocs() {
       try { renderDocs((await api("/documents")).documents); } catch (e) {}
     }
@@ -996,6 +1050,7 @@
     }
 
     $("refreshBtn").addEventListener("click", () => run($("refreshBtn"), refreshAll));
+    $("clearDocsBtn").addEventListener("click", () => tumBelgeleriSil($("clearDocsBtn")));
 
     /* ---------- soru sor ---------- */
     $("question").addEventListener("keydown", e => {

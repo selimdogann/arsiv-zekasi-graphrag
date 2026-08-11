@@ -22,3 +22,6 @@ class InMemoryDocumentCatalog(IDocumentCatalog):
     def all(self) -> List[DocumentInfo]:
         return sorted(self._kayitlar.values(),
                       key=lambda k: k.created_at, reverse=True)
+
+    def remove(self, document_id: str) -> None:
+        self._kayitlar.pop(document_id, None)

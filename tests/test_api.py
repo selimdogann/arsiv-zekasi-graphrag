@@ -18,8 +18,21 @@ class _SahteDoc:
 class _SahteCore:
     """GraphRAGCore yerine geçen, sabit yanıt döndüren sahte çekirdek."""
 
+    def __init__(self):
+        self.silinenler = []
+
     def ingest(self, uri):
         return _SahteDoc()
+
+    def delete_document(self, document_id):
+        if document_id != "doc-1":
+            return False
+        self.silinenler.append(document_id)
+        return True
+
+    def clear_archive(self):
+        self.silinenler.append("*")
+        return 1
 
     def answer_with_sources(self, question):
         return {"answer": f"cevap: {question}",
@@ -70,6 +83,23 @@ def test_documents_listesi_arsivdekileri_doner():
     r = client.get("/documents")
     assert r.status_code == 200
     assert any(d["name"] == "belge.txt" for d in r.json()["documents"])
+
+
+def test_documents_silme_basarili_id_doner():
+    r = client.delete("/documents/doc-1")
+    assert r.status_code == 200
+    assert r.json()["deleted"] == "doc-1"
+
+
+def test_documents_silme_olmayan_belge_404_doner():
+    r = client.delete("/documents/yok-boyle-bir-belge")
+    assert r.status_code == 404
+
+
+def test_documents_tumunu_silme_sayi_doner():
+    r = client.delete("/documents")
+    assert r.status_code == 200
+    assert r.json()["deleted"] == 1
 
 
 def test_ask_cevabi_ve_kaynaklari_doner():

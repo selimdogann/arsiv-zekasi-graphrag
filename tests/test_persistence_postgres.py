@@ -100,6 +100,49 @@ def test_pg_graph_store_olmayan_dugum_keyerror(pg_engine):
         store.get_node("yok")
 
 
+def test_pg_vector_store_belge_parcalarini_siler(pg_engine):
+    store = PostgresVectorStore(pg_engine)
+    store.upsert([
+        Chunk(chunk_id="d1#0", text="birinci belge", embedding=_unit(0)),
+        Chunk(chunk_id="d2#0", text="ikinci belge", embedding=_unit(1)),
+    ])
+
+    store.delete_document("d1")
+
+    assert store.count() == 1
+    assert store.all_chunks()[0].chunk_id == "d2#0"
+
+
+def test_pg_graph_store_paylasilan_dugumu_korur(pg_engine):
+    """KÖKEN mantığı: iki belgenin de gördüğü düğüm, biri silinince kalmalı."""
+    store = PostgresGraphStore(pg_engine)
+    store.upsert_node(GraphNode(node_id="zeus", label="Proje Zeus"), "d1")
+    store.upsert_node(GraphNode(node_id="zeus", label="Proje Zeus"), "d2")
+    store.upsert_node(GraphNode(node_id="gamma", label="Gamma"), "d2")
+    store.upsert_edge(GraphEdge("zeus", "gamma", 0.7, 0.5), "d2")
+
+    store.delete_document("d2")
+
+    assert store.get_node("zeus").label == "Proje Zeus"   # d1 hâlâ destekliyor
+    with pytest.raises(KeyError):
+        store.get_node("gamma")                            # desteksiz kaldı
+    assert store.neighbors("zeus") == []
+    assert store.edge_count() == 0
+
+
+def test_pg_graph_store_kokensiz_satirlara_dokunmaz(pg_engine):
+    """Bu özellikten önce yazılmış (kökensiz) düğümler silmede yok olmamalı."""
+    store = PostgresGraphStore(pg_engine)
+    store.upsert_node(GraphNode(node_id="eski", label="Eski Kayıt"))   # köken yok
+    store.upsert_node(GraphNode(node_id="yeni", label="Yeni"), "d1")
+
+    store.delete_document("d1")
+
+    assert store.get_node("eski").label == "Eski Kayıt"
+    with pytest.raises(KeyError):
+        store.get_node("yeni")
+
+
 def test_pg_audit_log_olayi_kalici_kaydeder(pg_engine):
     log = PostgresAuditLog(pg_engine)
     log.record(AuditEvent(action="REDACT", pii_type=PIIType.TCKN,

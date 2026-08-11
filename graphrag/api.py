@@ -144,6 +144,20 @@ def ingest_document(req: IngestRequest, core: GraphRAGCore = Depends(get_core)):
     return {"document_id": document.document_id, "state": document.state}
 
 
+@app.delete("/documents/{document_id}", dependencies=_KORUMALI)
+def delete_document(document_id: str, core: GraphRAGCore = Depends(get_core)):
+    """Bir belgeyi ve ondan türeyen parça/varlık/ilişkileri arşivden siler."""
+    if not core.delete_document(document_id):
+        raise HTTPException(status_code=404, detail="Belge bulunamadı.")
+    return {"deleted": document_id}
+
+
+@app.delete("/documents", dependencies=_KORUMALI)
+def clear_documents(core: GraphRAGCore = Depends(get_core)):
+    """Arşivdeki TÜM belgeleri siler (demo/sunum sonrası temizlik)."""
+    return {"deleted": core.clear_archive()}
+
+
 @app.post("/upload", dependencies=_KORUMALI)
 async def upload_documents(files: List[UploadFile] = File(...),
                            core: GraphRAGCore = Depends(get_core)):

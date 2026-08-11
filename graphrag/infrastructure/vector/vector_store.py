@@ -44,3 +44,10 @@ class InMemoryVectorStore(IVectorStore):
 
     def all_chunks(self) -> List[Chunk]:
         return list(self._chunks.values())
+
+    def delete_document(self, document_id: str) -> None:
+        # chunk_id biçimi: "<belge_id>#<sıra>" — önek eşleşmesi yeterli.
+        onek = document_id + "#"
+        for chunk_id in [c for c in self._chunks if c.startswith(onek)]:
+            del self._chunks[chunk_id]
+            del self._normalized[chunk_id]

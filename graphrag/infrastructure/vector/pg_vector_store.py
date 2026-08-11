@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import List, Tuple
 
-from sqlalchemy import Engine, func, select
+from sqlalchemy import Engine, delete, func, select
 from sqlalchemy.orm import Session
 
 from graphrag.domain.entities import Chunk
@@ -65,3 +65,9 @@ class PostgresVectorStore(IVectorStore):
                       embedding=tuple(r.embedding))
                 for r in rows
             ]
+
+    def delete_document(self, document_id: str) -> None:
+        with Session(self._engine) as session:
+            session.execute(
+                delete(ChunkRow).where(ChunkRow.document_id == document_id))
+            session.commit()

@@ -291,3 +291,100 @@ def test_baglanti_yoksa_yapilandirilmis_bilgi_doner():
 
     assert sonuc["found"] is False
     assert "bulunamadı" in sonuc["message"]
+
+
+# ------------------------------------------------------------------ belge silme
+
+def test_silme_belgeyi_katalogdan_cikarir():
+    core, loader, _llm, _vec, _graph = _core_kur()
+    loader.texts["a.txt"] = "Acme Holding tek başına."
+    doc = core.ingest("a.txt")
+
+    assert core.delete_document(doc.document_id) is True
+    assert core.documents() == []
+    assert core.stats()["documents"] == 0
+
+
+def test_silme_parcalari_da_siler():
+    """Belge listeden düşüp parçaları kalırsa cevaplarda hayalet kaynak olur."""
+    core, loader, llm, vectors, _graph = _core_kur()
+    loader.texts["a.txt"] = "Acme Holding ile anlaşma yapıldı."
+    doc = core.ingest("a.txt")
+    assert vectors.count() > 0
+
+    core.delete_document(doc.document_id)
+
+    assert vectors.count() == 0
+    assert "bulamadım" in core.answer("Acme Holding ne yaptı?").lower()
+
+
+def test_silme_yalnizca_o_belgeye_ait_varliklari_kaldirir():
+    """Paylaşılan varlık hayatta kalmalı: 'Proje Zeus' iki belgede de geçiyor."""
+    core, loader, _llm, _vec, _graph = _core_kur()
+    loader.texts["a"] = "Acme Holding, Proje Zeus için Beta Firması ile anlaştı."
+    loader.texts["b"] = "Proje Zeus kapsamında Gamma Danışmanlık teknik destek verdi."
+    core.ingest("a")
+    doc_b = core.ingest("b")
+
+    core.delete_document(doc_b.document_id)
+
+    isimler = core.entities()
+    assert "Gamma Danışmanlık" not in isimler   # yalnızca b'de vardı -> gitti
+    assert "Proje Zeus" in isimler              # a da destekliyor -> kaldı
+    assert "Acme Holding" in isimler
+
+
+def test_silme_o_belgenin_kurdugu_baglantiyi_koparir():
+    core, loader, _llm, _vec, _graph = _core_kur()
+    loader.texts["a"] = "Acme Holding, Proje Zeus için Beta Firması ile anlaştı."
+    loader.texts["b"] = "Proje Zeus kapsamında Gamma Danışmanlık teknik destek verdi."
+    core.ingest("a")
+    doc_b = core.ingest("b")
+    assert core.find_connection_detailed("Acme Holding", "Gamma Danışmanlık")["found"]
+
+    core.delete_document(doc_b.document_id)
+
+    assert not core.find_connection_detailed("Acme Holding", "Gamma Danışmanlık")["found"]
+    # a belgesinin kendi zinciri bozulmamalı
+    assert core.find_connection_detailed("Acme Holding", "Proje Zeus")["found"]
+
+
+def test_silme_kvkk_denetim_kaydina_dokunmaz():
+    """Denetim kaydı ekle-only'dir: belge silinse de 'maskeleme yapıldı' kalır."""
+    core, loader, _llm, _vec, _graph = _core_kur()
+    loader.texts["gizli.txt"] = "Müşteri TCKN 10000000146 olarak kayıtlıdır."
+    doc = core.ingest("gizli.txt")
+    onceki = len(core.audit_events())
+
+    core.delete_document(doc.document_id)
+
+    assert len(core.audit_events()) == onceki
+
+
+def test_silme_olmayan_belge_icin_false_doner():
+    core, _loader, _llm, _vec, _graph = _core_kur()
+    assert core.delete_document("boyle-bir-belge-yok") is False
+
+
+def test_clear_archive_hepsini_siler():
+    core, loader, _llm, _vec, _graph = _core_kur()
+    loader.texts["a.txt"] = "Acme Holding."
+    loader.texts["b.txt"] = "Delta Lojistik."
+    core.ingest("a.txt"); core.ingest("b.txt")
+
+    assert core.clear_archive() == 2
+    assert core.stats()["documents"] == 0
+    assert core.stats()["entities"] == 0
+    assert core.stats()["chunks"] == 0
+
+
+def test_silinen_belge_yeniden_yuklenebilir():
+    core, loader, _llm, _vec, _graph = _core_kur()
+    loader.texts["a.txt"] = "Acme Holding, Beta Firması ile anlaştı."
+    doc = core.ingest("a.txt")
+    core.delete_document(doc.document_id)
+
+    core.ingest("a.txt")
+
+    assert core.stats()["documents"] == 1
+    assert "Acme Holding" in core.entities()

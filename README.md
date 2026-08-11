@@ -123,6 +123,11 @@ Tarayıcıda: **http://localhost:8000/app/**
 4. **KVKK denetim kaydını inceleyin** — belgelerdeki TCKN/IBAN/VKN değerlerinin
    nasıl maskelendiğini gösterir.
 
+Belge listesindeki çöp kutusu simgesiyle tek bir belgeyi, "Tümünü sil" ile
+arşivin tamamını kaldırabilirsiniz. Silme yalnızca o belgeyi değil, ondan
+türeyen parça ve ilişkileri de temizler; başka belgelerin de desteklediği
+varlıklar (örneğin iki belgede birden geçen `Proje Zeus`) grafta kalır.
+
 İlk açılışta arayüz sağ üstten **API anahtarı** ister; `baslat.py` çıktısındaki
 anahtarı yapıştırmanız yeterli (tarayıcı hatırlar).
 
@@ -196,6 +201,7 @@ flowchart TD
 | **İlişki çıkarımı** | Metinden (özne, ilişki, nesne) üçlüleri; tipli kenarlar co-occurrence'tan daha yüksek güven alır |
 | **Hibrit retrieval** | Embedding + BM25, **Reciprocal Rank Fusion** ile birleştirme |
 | **Belge yaşam döngüsü** | Sonlu durum makinesi (DFA): `RECEIVED → PARSING → PARSED` |
+| **Silme tutarlılığı** | Graf düğüm/kenarlarında **köken (provenance)** takibi — belge silinince yalnızca desteksiz kalanlar düşer |
 | **Kimlik doğrulama** | TCKN/VKN/IBAN **checksum** algoritmaları |
 | **Türkçe metin** | İ/ı normalizasyonu, aksan katlama, şirket eki temizliği |
 | **Önbellek** | Decorator deseniyle memoization |
@@ -212,11 +218,11 @@ Ollama (`qwen2.5:7b`, `bge-m3`) · rank-bm25 · pytest · Docker · GitHub Actio
 python -m pytest
 ```
 
-**133 test** — birim ve entegrasyon. Dış bağımlılıklar (LLM, dosya sistemi)
+**152 test** — birim ve entegrasyon. Dış bağımlılıklar (LLM, dosya sistemi)
 sahte nesnelerle değiştirilir; testler internet veya model gerektirmez.
 Her Pull Request'te **GitHub Actions** ile otomatik çalışır.
 
-> `DATABASE_URL` tanımlı değilse 5 PostgreSQL testi otomatik atlanır.
+> `DATABASE_URL` tanımlı değilse 8 PostgreSQL testi otomatik atlanır.
 
 ---
 
