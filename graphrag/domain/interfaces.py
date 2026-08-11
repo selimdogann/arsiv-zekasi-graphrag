@@ -47,6 +47,10 @@ class IDocumentCatalog(ABC):
     def all(self) -> List[DocumentInfo]:
         """Tüm belge kayıtlarını, en yeniden eskiye döndürür."""
 
+    @abstractmethod
+    def remove(self, document_id: str) -> None:
+        """Belge kaydını siler. Olmayan id sessizce yok sayılır."""
+
 
 class IChunker(ABC):
     """Uzun bir metni, ayrı ayrı embed'lenecek küçük parçalara bölen sözleşme."""
@@ -57,15 +61,22 @@ class IChunker(ABC):
 
 
 class IGraphStore(ABC):
-    """Bilgi çizgesi depolama sözleşmesi."""
+    """Bilgi çizgesi depolama sözleşmesi.
+
+    KÖKEN (provenance): bir varlık birden çok belgede geçebilir — "Proje Zeus"
+    hem sözleşmede hem toplantı tutanağında vardır. Bu yüzden depo, her düğüm
+    ve kenar için "beni hangi belgeler destekliyor" bilgisini de tutar. Bir
+    belge silindiğinde yalnızca DESTEKSİZ kalan düğüm/kenarlar düşer; başka
+    belgelerin de kanıtladığı bilgi grafta kalır.
+    """
 
     @abstractmethod
-    def upsert_node(self, node: GraphNode) -> None:
-        """Düğümü ekler/günceller."""
+    def upsert_node(self, node: GraphNode, document_id: str = "") -> None:
+        """Düğümü ekler/günceller ve varsa kaynak belgeyi kökenine yazar."""
 
     @abstractmethod
-    def upsert_edge(self, edge: GraphEdge) -> None:
-        """Kenarı ekler/günceller."""
+    def upsert_edge(self, edge: GraphEdge, document_id: str = "") -> None:
+        """Kenarı ekler/günceller ve varsa kaynak belgeyi kökenine yazar."""
 
     @abstractmethod
     def neighbors(self, node_id: str) -> List[GraphEdge]:
@@ -82,6 +93,14 @@ class IGraphStore(ABC):
     @abstractmethod
     def edge_count(self) -> int:
         """Graftaki toplam kenar sayısı (istatistik için)."""
+
+    @abstractmethod
+    def delete_document(self, document_id: str) -> None:
+        """Belgenin graftaki katkısını geri alır.
+
+        Belgenin kökeni tüm düğüm ve kenarlardan çıkarılır; ardından hiçbir
+        belgenin desteklemediği düğüm/kenarlar silinir.
+        """
 
 
 
@@ -106,6 +125,10 @@ class IVectorStore(ABC):
         """Depodaki tüm parçalar. Kalıcı depodan bellek-içi anahtar kelime
         indeksini yeniden kurmak (uygulama açılışı) için gerekir."""
 
+    @abstractmethod
+    def delete_document(self, document_id: str) -> None:
+        """Belgeye ait tüm parçaları siler."""
+
 
 class IKeywordIndex(ABC):
     """Anahtar kelime (BM25) araması sözleşmesi — vektör aramanın 'lexical' eşi.
@@ -121,6 +144,10 @@ class IKeywordIndex(ABC):
     @abstractmethod
     def search(self, query: str, top_k: int) -> List["tuple[Chunk, float]"]:
         """Sorguyla en çok kelime örtüşen top_k chunk'ı (chunk, skor) olarak döndürür."""
+
+    @abstractmethod
+    def delete_document(self, document_id: str) -> None:
+        """Belgeye ait parçaları indeksten çıkarır."""
 
 
 class ILanguageModel(ABC):

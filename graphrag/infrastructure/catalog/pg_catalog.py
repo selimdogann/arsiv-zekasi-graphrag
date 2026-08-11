@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import List
 
-from sqlalchemy import Engine, select
+from sqlalchemy import Engine, delete, select
 from sqlalchemy.orm import Session
 
 from graphrag.domain.entities import DocumentInfo
@@ -40,3 +40,9 @@ class PostgresDocumentCatalog(IDocumentCatalog):
                              state=r.state, created_at=r.created_at)
                 for r in rows
             ]
+
+    def remove(self, document_id: str) -> None:
+        with Session(self._engine) as session:
+            session.execute(
+                delete(DocumentRow).where(DocumentRow.document_id == document_id))
+            session.commit()

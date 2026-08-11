@@ -55,6 +55,30 @@ class GraphEdgeRow(Base):
     relation: Mapped[str] = mapped_column(String, default="")
 
 
+class NodeSourceRow(Base):
+    """Düğüm KÖKENİ: bu düğümü hangi belge üretti.
+
+    Bir varlık birden çok belgede geçebileceği için ilişki çoktan-çoğadır;
+    bu yüzden ayrı bir tabloda tutulur. Belge silindiğinde önce buradaki
+    satırlar düşer, sonra kökensiz kalan düğümler silinir.
+    """
+
+    __tablename__ = "node_sources"
+
+    node_id: Mapped[str] = mapped_column(String, primary_key=True)
+    document_id: Mapped[str] = mapped_column(String, primary_key=True, index=True)
+
+
+class EdgeSourceRow(Base):
+    """Kenar KÖKENİ — `NodeSourceRow`'un kenarlar için karşılığı."""
+
+    __tablename__ = "edge_sources"
+
+    source_id: Mapped[str] = mapped_column(String, primary_key=True)
+    target_id: Mapped[str] = mapped_column(String, primary_key=True)
+    document_id: Mapped[str] = mapped_column(String, primary_key=True, index=True)
+
+
 class AuditEventRow(Base):
     __tablename__ = "audit_events"
 

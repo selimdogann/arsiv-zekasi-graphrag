@@ -105,7 +105,10 @@ class GraphRAGCore:
                 label = prefer_label(self._graph.get_node(node_id).label, label)
             except KeyError:
                 pass
-            self._graph.upsert_node(GraphNode(node_id=node_id, label=label))
+            # Belge id'si KÖKEN olarak geçilir: belge sonradan silinirse bu
+            # düğümün desteği çekilir (bkz. IGraphStore).
+            self._graph.upsert_node(GraphNode(node_id=node_id, label=label),
+                                    document.document_id)
             node_ids.append(node_id)
             kabul_edilen.append(label)
 
@@ -126,8 +129,10 @@ class GraphRAGCore:
                 etiket = etiketler.get((a, b)) or etiketler.get((b, a)) or ""
                 w, guven = ((guclu, _RELATION_CONFIDENCE) if etiket
                             else (zayif, _CO_OCCURRENCE_CONFIDENCE))
-                self._graph.upsert_edge(GraphEdge(a, b, w, guven, etiket))
-                self._graph.upsert_edge(GraphEdge(b, a, w, guven, etiket))
+                self._graph.upsert_edge(GraphEdge(a, b, w, guven, etiket),
+                                        document.document_id)
+                self._graph.upsert_edge(GraphEdge(b, a, w, guven, etiket),
+                                        document.document_id)
 
         document.transition_to(
             DocumentState.PARSED,
@@ -142,6 +147,40 @@ class GraphRAGCore:
             created_at=document.created_at.isoformat(timespec="seconds"),
         ))
         return document
+
+    def delete_document(self, document_id: str) -> bool:
+        """Bir belgeyi ve ondan TÜREYEN her şeyi arşivden siler.
+
+        Yükleme (`ingest`) bir belgeyi dört ayrı yere dağıtır: vektör deposu,
+        anahtar-kelime indeksi, bilgi grafı ve belge kataloğu. Silme de aynı
+        dördünü dolaşmak zorundadır; aksi hâlde arşiv tutarsız kalır (belge
+        listeden düşer ama cevaplarda kaynak olarak görünmeye devam eder).
+
+        Graf, diğerlerinden farklıdır: bir varlık birden çok belgede geçebilir.
+        Bu yüzden orada silme değil, KÖKEN düşürme yapılır — yalnızca desteksiz
+        kalan düğüm ve kenarlar grafı terk eder (bkz. `IGraphStore`).
+
+        KVKK denetim kaydına DOKUNULMAZ: denetim kaydı ekle-only'dir ve zaten
+        kişisel veri değil, yalnızca "şu tip veri şu an maskelendi" bilgisini
+        tutar. Belgeyi silmek, maskelemenin yapıldığı gerçeğini silmemelidir.
+
+        Dönüş: belge bulunup silindiyse True, kayıtlı değilse False.
+        """
+        if document_id not in {d.document_id for d in self._catalog.all()}:
+            return False
+
+        self._vectors.delete_document(document_id)
+        self._keyword.delete_document(document_id)
+        self._graph.delete_document(document_id)
+        self._catalog.remove(document_id)
+        return True
+
+    def clear_archive(self) -> int:
+        """Arşivdeki tüm belgeleri siler; silinen belge sayısını döndürür."""
+        belgeler = [d.document_id for d in self._catalog.all()]
+        for document_id in belgeler:
+            self.delete_document(document_id)
+        return len(belgeler)
 
     def answer(self, question: str) -> str:
         """Soruyu yanıtlar (yalnızca cevap metni)."""

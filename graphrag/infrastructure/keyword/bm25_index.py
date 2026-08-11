@@ -41,6 +41,16 @@ class InMemoryKeywordIndex(IKeywordIndex):
         corpus = [self._tokenize(c.text) for c in self._chunk_list]
         self._bm25 = BM25Okapi(corpus) if corpus else None
 
+    def delete_document(self, document_id: str) -> None:
+        # chunk_id biçimi: "<belge_id>#<sıra>" — önek eşleşmesi yeterli.
+        onek = document_id + "#"
+        silinecek = [c for c in self._chunks if c.startswith(onek)]
+        if not silinecek:
+            return
+        for chunk_id in silinecek:
+            del self._chunks[chunk_id]
+        self._rebuild()   # BM25 istatistikleri (kelime sıklıkları) yeniden hesaplanmalı
+
     def search(self, query: str, top_k: int):
         if self._bm25 is None:
             return []
