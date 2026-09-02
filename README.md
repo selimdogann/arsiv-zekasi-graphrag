@@ -74,8 +74,8 @@ doğrulanabilirlik esastır.
 
 ```bash
 # 1) Projeyi indirin
-git clone https://github.com/selimdogann/Enterprise-GraphRAG.git
-cd Enterprise-GraphRAG
+git clone https://github.com/selimdogann/arsiv-zekasi-graphrag.git
+cd arsiv-zekasi-graphrag
 
 # 2) Python ortamı
 python3 -m venv .venv
