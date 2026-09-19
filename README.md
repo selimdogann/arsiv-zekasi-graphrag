@@ -8,6 +8,23 @@ Yapay zekâ yerelde (Ollama) çalışır; **hiçbir veri buluta gönderilmez.**
 
 ---
 
+## Ekran görüntüleri
+
+Belgelerinizle konuşun, kaynak göstererek cevap alın ve belgeler arasındaki
+gizli bağlantıları keşfedin — hepsi tamamen yerelde.
+
+![Panel — istatistikler ve belge yükleme](assets/screenshots/01-panel.png)
+
+| Kaynak göstererek soru-cevap | Gizli bağlantı keşfi |
+|---|---|
+| ![Soru-cevap](assets/screenshots/02-soru-cevap.png) | ![Bağlantı bulma](assets/screenshots/03-baglanti.png) |
+
+Solda: *"Gamma Danışmanlık ne yaptı?"* sorusuna 3 belgeye dayanan, kaynaklı cevap.
+Sağda: hiçbir belgede birlikte geçmeyen **Acme Holding ↔ Gamma Danışmanlık**
+firmalarının, bilgi grafı üzerinden bulunan bağlantı zinciri.
+
+---
+
 ## Çözdüğü problem
 
 Arşivdeki iki ayrı belge (`ornek_belgeler/` klasöründen):
