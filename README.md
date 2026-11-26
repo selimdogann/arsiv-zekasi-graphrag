@@ -19,7 +19,7 @@ gizli bağlantıları keşfedin — hepsi tamamen yerelde.
 |---|---|
 | ![Soru-cevap](assets/screenshots/02-soru-cevap.png) | ![Bağlantı bulma](assets/screenshots/03-baglanti.png) |
 
-Solda: *"Gamma Danışmanlık ne yaptı?"* sorusuna 3 belgeye dayanan, kaynaklı cevap.
+Solda: *"Gamma Danışmanlık ne iş yaptı?"* sorusuna iki belgeden 3 parçaya dayanan, kaynaklı cevap.
 Sağda: hiçbir belgede birlikte geçmeyen **Acme Holding ↔ Gamma Danışmanlık**
 firmalarının, bilgi grafı üzerinden bulunan bağlantı zinciri.
 
