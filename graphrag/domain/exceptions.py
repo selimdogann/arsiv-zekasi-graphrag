@@ -29,3 +29,7 @@ class IngestionError(GraphRAGError):
 
 class PathNotFoundError(GraphRAGError):
     """İki düğüm arasında (verilen kısıtlar içinde) yol bulunamadı."""
+
+
+class LanguageModelError(GraphRAGError):
+    """Dil modeli servisi istenen işi yapamadı (örn. model indirilmemiş)."""
