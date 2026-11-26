@@ -388,3 +388,41 @@ def test_silinen_belge_yeniden_yuklenebilir():
 
     assert core.stats()["documents"] == 1
     assert "Acme Holding" in core.entities()
+
+
+# ------------------------------------------------------ uç durumlar (sağlamlık)
+
+def test_ingest_bos_belgeyi_reddeder_ve_kataloga_eklemez():
+    import pytest
+    from graphrag.domain.exceptions import IngestionError
+
+    core, loader, _llm, _vec, _graph = _core_kur()
+    loader.texts["bos"] = "   \n  "
+    with pytest.raises(IngestionError):
+        core.ingest("bos")
+    assert core.documents() == []
+
+
+def test_find_connection_olmayan_varligi_acikca_soyler():
+    core, loader, _llm, _vec, _graph = _core_kur()
+    loader.texts["a"] = "Acme Holding, Proje Zeus için Beta Firması ile anlaştı."
+    core.ingest("a")
+    sonuc = core.find_connection_detailed("Acme Holdingg", "Proje Zeus")
+    assert sonuc["found"] is False
+    assert "Acme Holdingg" in sonuc["message"]
+
+
+def test_find_connection_ayni_olmayan_varlikta_cokmez():
+    # Eskiden: kaynak == hedef ve grafta yoksa get_node KeyError → HTTP 500.
+    core, _loader, _llm, _vec, _graph = _core_kur()
+    sonuc = core.find_connection_detailed("Yok Firma", "Yok Firma")
+    assert sonuc["found"] is False
+
+
+def test_find_connection_ayni_varligi_reddeder():
+    core, loader, _llm, _vec, _graph = _core_kur()
+    loader.texts["a"] = "Acme Holding, Proje Zeus için Beta Firması ile anlaştı."
+    core.ingest("a")
+    sonuc = core.find_connection_detailed("Acme Holding", "ACME HOLDİNG A.Ş.")
+    assert sonuc["found"] is False
+    assert "aynı" in sonuc["message"]

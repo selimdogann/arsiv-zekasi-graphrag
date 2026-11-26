@@ -19,14 +19,14 @@ from graphrag.domain.interfaces import IDocumentLoader
 class PdfLoader(IDocumentLoader):
     def load(self, uri: str) -> Document:
         if not os.path.isfile(uri):
-            raise IngestionError(f"Dosya bulunamadı: {uri}")
+            raise IngestionError(f"Dosya bulunamadı: {os.path.basename(uri)}")
         try:
             reader = PdfReader(uri)
             text = ""
             for page in reader.pages:
                 text += page.extract_text() or ""
         except Exception as exc:
-            raise IngestionError(f"PDF okunamadı: {uri}") from exc
+            raise IngestionError(f"PDF okunamadı: {os.path.basename(uri)}") from exc
 
         title = os.path.splitext(os.path.basename(uri))[0]
         return Document(uri=uri, title=title, raw_text=text)

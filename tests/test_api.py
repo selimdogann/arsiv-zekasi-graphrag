@@ -5,14 +5,20 @@ Gerçek Ollama/veritabanı gerekmez: `get_core` bağımlılığını (Depends) S
 çekirdekle değiştiririz (dependency override). Böylece HTTP katmanının doğru
 çalıştığını (doğru metodu çağırıp doğru JSON'u döndürdüğünü) izole test ederiz.
 """
+import pytest
+import requests
 from fastapi.testclient import TestClient
+
+from graphrag import api
+from graphrag.domain.entities import DocumentState
+from graphrag.domain.exceptions import IngestionError
 
 from graphrag.api import app, get_core
 
 
 class _SahteDoc:
     document_id = "doc-1"
-    state = "PARSED"
+    state = DocumentState.PARSED    # gerçekteki gibi enum (upload `.value` okur)
 
 
 class _SahteCore:
@@ -73,7 +79,8 @@ def test_health_servis_ve_depolama_durumu_doner():
 
 
 def test_documents_ingest_cagirir():
-    r = client.post("/documents", json={"uri": "herhangi/yol.txt"})
+    r = client.post("/documents",
+                    json={"uri": "ornek_belgeler/01_acme_danismanlik_sozlesmesi.txt"})
     assert r.status_code == 200
     assert r.json()["document_id"] == "doc-1"
     assert r.json()["state"] == "PARSED"
@@ -152,3 +159,82 @@ def test_web_arayuzu_sunuluyor():
     r = client.get("/app/")
     assert r.status_code == 200
     assert "Arşiv Zekâsı" in r.text
+
+
+# --------------------------------------------------- girdi doğrulama ve hatalar
+
+@pytest.fixture
+def cekirdek(monkeypatch, tmp_path):
+    """Teste özel sahte çekirdek; yüklemeler repo yerine geçici klasöre yazılır."""
+    core = _SahteCore()
+    core.yuklenenler = []
+    core.ingest = lambda uri: (core.yuklenenler.append(uri), _SahteDoc())[1]
+    monkeypatch.setitem(app.dependency_overrides, get_core, lambda: core)
+    monkeypatch.setattr(api, "_UPLOAD_DIR", str(tmp_path))
+    return core
+
+
+@pytest.mark.parametrize("uri", ["README.md", "/etc/hosts",
+                                 "ornek_belgeler/../graphrag/config.py"])
+def test_documents_ornek_klasoru_disini_reddeder(cekirdek, uri):
+    # Kısıt olmasaydı sunucudaki herhangi bir dosya arşive alınıp okunabilirdi.
+    r = client.post("/documents", json={"uri": uri})
+    assert r.status_code == 400
+    assert cekirdek.yuklenenler == []
+
+
+def test_upload_desteklenmeyen_uzantiyi_diske_yazmadan_reddeder(cekirdek, tmp_path):
+    r = client.post("/upload", files=[("files", ("program.exe", b"MZ"))])
+    assert r.status_code == 200
+    assert r.json()["documents"] == []
+    assert r.json()["errors"][0]["name"] == "program.exe"
+    assert cekirdek.yuklenenler == []
+    assert list(tmp_path.iterdir()) == []      # dosya hiç yazılmadı
+
+
+def test_upload_ayni_adli_belgeyi_tekrar_yuklemez(cekirdek):
+    # Sahte arşivde zaten "belge.txt" var.
+    r = client.post("/upload", files=[("files", ("belge.txt", b"metin"))])
+    assert r.json()["documents"] == []
+    assert "zaten" in r.json()["errors"][0]["detail"]
+
+
+def test_upload_kismi_basari_iki_listeyle_doner(cekirdek):
+    r = client.post("/upload", files=[("files", ("yeni.txt", b"metin")),
+                                      ("files", ("resim.png", b"png"))])
+    body = r.json()
+    assert [d["name"] for d in body["documents"]] == ["yeni.txt"]
+    assert [e["name"] for e in body["errors"]] == ["resim.png"]
+
+
+def test_upload_islenemeyen_dosyayi_siler_ve_nedenini_soyler(cekirdek, tmp_path):
+    def patla(uri):
+        raise IngestionError("Belgede okunabilir metin yok.")
+    cekirdek.ingest = patla
+    r = client.post("/upload", files=[("files", ("bos.txt", b" "))])
+    assert r.json()["errors"][0]["detail"] == "Belgede okunabilir metin yok."
+    assert list(tmp_path.iterdir()) == []      # yarım kalan dosya temizlendi
+
+
+def test_ask_bos_soru_400_doner(cekirdek):
+    r = client.post("/ask", json={"question": "   "})
+    assert r.status_code == 400
+
+
+def test_ingestion_hatasi_400_ve_mesajla_doner(cekirdek):
+    def patla(uri):
+        raise IngestionError("Desteklenmeyen dosya türü: .xyz")
+    cekirdek.ingest = patla
+    r = client.post("/documents",
+                    json={"uri": "ornek_belgeler/01_acme_danismanlik_sozlesmesi.txt"})
+    assert r.status_code == 400
+    assert r.json()["detail"] == "Desteklenmeyen dosya türü: .xyz"
+
+
+def test_ollama_kapaliysa_503_ve_aciklama_doner(cekirdek):
+    def patla(question):
+        raise requests.ConnectionError("bağlantı reddedildi")
+    cekirdek.answer_with_sources = patla
+    r = client.post("/ask", json={"question": "merhaba"})
+    assert r.status_code == 503
+    assert "Ollama" in r.json()["detail"]

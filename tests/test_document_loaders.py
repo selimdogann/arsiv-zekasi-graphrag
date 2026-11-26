@@ -90,3 +90,47 @@ def test_auto_loader_desteklenmeyen_uzanti_hata_firlatir(tmp_path):
 
     with pytest.raises(IngestionError):
         AutoDocumentLoader().load(str(dosya))
+
+
+# ------------------------------------------------- metin kodlaması (.txt)
+
+def test_txt_loader_windows_turkce_cp1254_dosyayi_okur(tmp_path):
+    # Türkiye'de Windows'ta kaydedilmiş .txt dosyaları çoğunlukla cp1254'tür.
+    dosya = tmp_path / "eski.txt"
+    dosya.write_bytes("Şirket İşçi ğüşıöç".encode("cp1254"))
+
+    document = AutoDocumentLoader().load(str(dosya))
+
+    assert document.raw_text == "Şirket İşçi ğüşıöç"
+
+
+def test_txt_loader_utf8_bom_isaretini_temizler(tmp_path):
+    dosya = tmp_path / "bomlu.txt"
+    dosya.write_bytes("﻿Başlık".encode("utf-8"))
+
+    assert AutoDocumentLoader().load(str(dosya)).raw_text == "Başlık"
+
+
+def test_txt_loader_taninmayan_kodlamada_ingestionerror_firlatir(tmp_path):
+    # 0x81 ne geçerli UTF-8 ne de cp1254'te tanımlı bir bayttır.
+    dosya = tmp_path / "bozuk.txt"
+    dosya.write_bytes(b"\x81\x81\x81")
+
+    with pytest.raises(IngestionError):
+        AutoDocumentLoader().load(str(dosya))
+
+
+def test_hata_mesaji_sunucu_yolunu_sizdirmaz():
+    # Mesaj artık arayüzde gösteriliyor; sunucunun klasör yapısını açmamalı.
+    with pytest.raises(IngestionError) as hata:
+        AutoDocumentLoader().load("/gizli/sunucu/klasoru/yok.txt")
+    assert "/gizli/sunucu" not in str(hata.value)
+
+
+def test_txt_loader_nul_bayt_iceren_dosyayi_reddeder(tmp_path):
+    # UTF-16 kaydedilmiş dosya: cp1254 bunu "çözer" ama sonuç çöp olurdu.
+    dosya = tmp_path / "utf16.txt"
+    dosya.write_bytes("Merhaba".encode("utf-16"))
+
+    with pytest.raises(IngestionError):
+        AutoDocumentLoader().load(str(dosya))

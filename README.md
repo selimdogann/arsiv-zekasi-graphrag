@@ -83,7 +83,7 @@ doğrulanabilirlik esastır.
 
 | | Zorunlu mu | Not |
 |---|---|---|
-| **Python 3.9+** | Evet | |
+| **Python 3.10+** | Evet | 3.9 desteği (EOL) bırakıldı |
 | **[Ollama](https://ollama.com)** | Evet | Yapay zekâ modellerini yerelde çalıştırır |
 | **Docker** | Hayır | Yalnızca verilerin kalıcı olması için |
 
@@ -139,6 +139,11 @@ Tarayıcıda: **http://localhost:8000/app/**
    Zincir graf üzerinde çizilir.
 4. **KVKK denetim kaydını inceleyin** — belgelerdeki TCKN/IBAN/VKN değerlerinin
    nasıl maskelendiğini gösterir.
+
+Aynı adlı bir belge ikinci kez yüklenmez; desteklenmeyen, boş ya da okunamayan
+dosyalar reddedilir ve arayüz her dosya için nedenini gösterir (diğer dosyalar
+yüklenmeye devam eder). Windows'ta Türkçe kaydedilmiş (`cp1254`) `.txt`
+dosyaları da okunur.
 
 Belge listesindeki çöp kutusu simgesiyle tek bir belgeyi, "Tümünü sil" ile
 arşivin tamamını kaldırabilirsiniz. Silme yalnızca o belgeyi değil, ondan
@@ -222,7 +227,9 @@ flowchart TD
 | **Kimlik doğrulama** | TCKN/VKN/IBAN **checksum** algoritmaları |
 | **Türkçe metin** | İ/ı normalizasyonu, aksan katlama, şirket eki temizliği |
 | **Önbellek** | Decorator deseniyle memoization |
-| **Güvenlik** | API anahtarı; zamanlama saldırısına dayanıklı karşılaştırma |
+| **Güvenlik** | API anahtarı; zamanlama saldırısına dayanıklı karşılaştırma; sunucudan yol ile yükleme yalnızca `ornek_belgeler/` ile sınırlı |
+| **Hata yönetimi** | Alan hataları HTTP koduna çevrilir: okunamayan belge → 400, Ollama kapalı → 503 (Türkçe açıklamayla) |
+| **Erişilebilirlik** | Klavyeyle tam kullanım (ARIA combobox), görünür odak, WCAG kontrastı ölçülmüş renkler, azaltılmış hareket desteği |
 
 **Teknolojiler:** Python · FastAPI · PostgreSQL + pgvector · SQLAlchemy ·
 Ollama (`qwen2.5:7b`, `bge-m3`) · rank-bm25 · pytest · Docker · GitHub Actions
@@ -235,9 +242,9 @@ Ollama (`qwen2.5:7b`, `bge-m3`) · rank-bm25 · pytest · Docker · GitHub Actio
 python -m pytest
 ```
 
-**152 test** — birim ve entegrasyon. Dış bağımlılıklar (LLM, dosya sistemi)
+**171 test** — birim ve entegrasyon. Dış bağımlılıklar (LLM, dosya sistemi)
 sahte nesnelerle değiştirilir; testler internet veya model gerektirmez.
-Her Pull Request'te **GitHub Actions** ile otomatik çalışır.
+Her Pull Request'te **GitHub Actions** ile Python 3.10 ve 3.12'de otomatik çalışır.
 
 > `DATABASE_URL` tanımlı değilse 8 PostgreSQL testi otomatik atlanır.
 
@@ -268,7 +275,24 @@ açıkça ortaya koyar.
 | **Aktarım güvenliği** | API anahtarı HTTP üzerinden düz metin gider | Ters proxy arkasında HTTPS |
 | **Yetkilendirme** | Tek anahtar; "kim ne yaptı" izlenmiyor | Kullanıcı bazlı giriş + rol tabanlı yetki (KVKK denetimi için değerli) |
 | **Varlık çıkarımı** | Yerel model Türkçe metni bazen bozuk kopyalıyor | Türkçe'ye özel NER modeli; şu an belgeye sabitleme (grounding) ile tolere ediliyor |
-| **Belge formatları** | `.txt`, `.pdf`, `.docx` | Taranmış belgeler için OCR |
+| **Belge formatları** | `.txt`, `.pdf`, `.docx`; metin katmanı olmayan taranmış PDF "okunabilir metin yok" diye reddedilir | Taranmış belgeler için OCR |
+
+---
+
+## API uçları
+
+Tümü (sağlık ucu hariç) `X-API-Key` başlığı ister. Etkileşimli belge:
+`http://localhost:8000/docs`.
+
+| Uç | Ne yapar |
+|---|---|
+| `GET /` | Sağlık: Ollama, veritabanı, modeller, doğrulama açık mı |
+| `POST /upload` | Dosya yükler; `documents` (eklenenler) ve `errors` (dosya + neden) döner |
+| `POST /documents` | `ornek_belgeler/` içindeki bir örnek belgeyi yükler |
+| `GET /documents` · `DELETE /documents[/{id}]` | Belgeleri listeler / siler |
+| `POST /ask` | Soru sorar; cevap + kaynak parçalar |
+| `GET /connection?source=&target=` | İki varlık arasındaki en güvenilir zincir |
+| `GET /entities` · `GET /stats` · `GET /audit` | Varlıklar, özet sayılar, KVKK kaydı |
 
 ---
 
