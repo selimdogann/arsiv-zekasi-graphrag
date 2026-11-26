@@ -23,7 +23,7 @@ from graphrag.domain.entities import (
     GraphEdge,
     GraphNode,
 )
-from graphrag.domain.exceptions import PathNotFoundError
+from graphrag.domain.exceptions import IngestionError, PathNotFoundError
 from graphrag.application.fusion import reciprocal_rank_fusion
 from graphrag.domain.interfaces import (
     IAuditLog,
@@ -70,6 +70,13 @@ class GraphRAGCore:
     def ingest(self, uri: str) -> Document:
         document = self._loader.load(uri)
         document.transition_to(DocumentState.PARSING, note="ingest başladı")
+
+        # Boş belge (ya da metin katmanı olmayan taranmış PDF) arşive "işlendi"
+        # diye girmemeli: içinde aranacak tek kelime yoktur.
+        if not document.raw_text.strip():
+            document.transition_to(DocumentState.FAILED, note="metin yok")
+            raise IngestionError(
+                "Belgede okunabilir metin yok (boş dosya ya da taranmış PDF olabilir).")
 
         # KVKK: kişisel veriler, embed/graf-çıkarım öncesi maskelenir — böylece
         # ham kişisel veri hiçbir zaman vektör deposuna ya da grafa girmez.
@@ -265,14 +272,27 @@ class GraphRAGCore:
         Arayüz eskiden sonucu düz metinden ayrıştırıyordu; varlık adında ':' ya
         da '->' geçmesi bunu bozabilirdi. Yapılandırılmış çıktı bu kırılganlığı
         ortadan kaldırır ve ilişki etiketlerini de taşır.
+
+        "Bağlantı yok" ile "böyle bir varlık yok" farklı durumlardır; kullanıcıya
+        hangisi olduğu söylenir (yazım hatasını fark edebilsin diye).
         """
-        try:
-            path = self._search.shortest_path(canonical_entity_key(source_id),
-                                              canonical_entity_key(target_id))
-        except PathNotFoundError:
+        def bulunamadi(mesaj: str) -> dict:
             return {"found": False, "nodes": [], "relations": [],
-                    "confidence": 0.0,
-                    "message": "Bu iki varlık arasında bilinen bir bağlantı bulunamadı."}
+                    "confidence": 0.0, "message": mesaj}
+
+        kaynak, hedef = canonical_entity_key(source_id), canonical_entity_key(target_id)
+        for ad, anahtar in ((source_id, kaynak), (target_id, hedef)):
+            try:
+                self._graph.get_node(anahtar)
+            except KeyError:
+                return bulunamadi(f"“{ad.strip()}” arşivde bir varlık olarak bulunamadı.")
+        if kaynak == hedef:
+            return bulunamadi("Kaynak ve hedef aynı varlık; iki farklı varlık seçin.")
+
+        try:
+            path = self._search.shortest_path(kaynak, hedef)
+        except PathNotFoundError:
+            return bulunamadi("Bu iki varlık arasında bilinen bir bağlantı bulunamadı.")
 
         return {
             "found": True,
