@@ -11,6 +11,11 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest          # GitHub'ın sağladığı bulut makinesi
+    strategy:
+      matrix:
+        # README "Python 3.9+" diyor: en eski desteklenen sürüm ile güncel
+        # sürüm birlikte denenir, iddia her PR'da kanıtlanır.
+        python-version: ["3.9", "3.12"]
     steps:
       - name: Kodu al
         uses: actions/checkout@v4    # depoyu runner'a indir
@@ -18,7 +23,7 @@ jobs:
       - name: Python kur
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: ${{ matrix.python-version }}
 
       - name: Bağımlılıkları yükle
         run: |
@@ -27,5 +32,5 @@ jobs:
 
       - name: Testleri çalıştır
         run: python -m pytest -q
-        # Not: 58 test çalışır; 5 Postgres testi DATABASE_URL olmadığı için
-        # kendini nazikçe atlar (importorskip + skipif). Ollama da gerekmez.
+        # 8 Postgres testi DATABASE_URL olmadığı için kendini atlar
+        # (importorskip + skipif); diğerleri çalışır. Ollama gerekmez.
