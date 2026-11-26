@@ -13,9 +13,9 @@ jobs:
     runs-on: ubuntu-latest          # GitHub'ın sağladığı bulut makinesi
     strategy:
       matrix:
-        # README "Python 3.9+" diyor: en eski desteklenen sürüm ile güncel
+        # README "Python 3.10+" diyor: en eski desteklenen sürüm ile güncel
         # sürüm birlikte denenir, iddia her PR'da kanıtlanır.
-        python-version: ["3.9", "3.12"]
+        python-version: ["3.10", "3.12"]
     steps:
       - name: Kodu al
         uses: actions/checkout@v4    # depoyu runner'a indir

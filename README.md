@@ -83,7 +83,7 @@ doğrulanabilirlik esastır.
 
 | | Zorunlu mu | Not |
 |---|---|---|
-| **Python 3.9+** | Evet | |
+| **Python 3.10+** | Evet | 3.9 desteği (EOL) bırakıldı |
 | **[Ollama](https://ollama.com)** | Evet | Yapay zekâ modellerini yerelde çalıştırır |
 | **Docker** | Hayır | Yalnızca verilerin kalıcı olması için |
 
@@ -244,7 +244,7 @@ python -m pytest
 
 **171 test** — birim ve entegrasyon. Dış bağımlılıklar (LLM, dosya sistemi)
 sahte nesnelerle değiştirilir; testler internet veya model gerektirmez.
-Her Pull Request'te **GitHub Actions** ile Python 3.9 ve 3.12'de otomatik çalışır.
+Her Pull Request'te **GitHub Actions** ile Python 3.10 ve 3.12'de otomatik çalışır.
 
 > `DATABASE_URL` tanımlı değilse 8 PostgreSQL testi otomatik atlanır.
 
