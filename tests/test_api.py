@@ -47,7 +47,8 @@ class _SahteCore:
 
     def find_connection_detailed(self, source, target):
         return {"found": True, "nodes": [source, target],
-                "relations": ["anlaştı"], "confidence": 0.5, "message": ""}
+                "relations": ["anlaştı"], "evidence": ["relation"],
+                "strength": "strong", "confidence": 0.8, "message": ""}
 
     def stats(self):
         return {"documents": 1, "chunks": 3, "entities": 4,
@@ -131,6 +132,7 @@ def test_connection_yapilandirilmis_sonuc_doner():
     assert body["found"] is True
     assert body["nodes"] == ["A", "B"]
     assert body["relations"] == ["anlaştı"]
+    assert body["strength"] == "strong"
 
 
 def test_stats_ozet_doner():

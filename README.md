@@ -21,7 +21,8 @@ gizli bağlantıları keşfedin — hepsi tamamen yerelde.
 
 Solda: *"Gamma Danışmanlık ne iş yaptı?"* sorusuna iki belgeden 3 parçaya dayanan, kaynaklı cevap.
 Sağda: hiçbir belgede birlikte geçmeyen **Acme Holding ↔ Gamma Danışmanlık**
-firmalarının, bilgi grafı üzerinden bulunan bağlantı zinciri.
+firmalarının, bilgi grafı üzerinden bulunan bağlantı zinciri; iki adımın
+ikisi de metinden çıkarılmış ilişki olduğu için "güçlü bağlantı" olarak işaretlenir.
 
 ---
 
@@ -51,7 +52,7 @@ flowchart LR
     Z -- "raporu hazırladı" --> G["Gamma Danışmanlık"]
 ```
 
-`Birleşik güven: 0.64 · 2 adım · 0.02 saniye`
+`Güçlü bağlantı (2 adımın ikisi de metinden çıkarılmış ilişki) · sıralama skoru 0.64 · 0.02 saniye`
 
 Dikkat edilecek nokta: sistem yalnızca "bağlılar" demez, **her adımın ilişki
 türünü** de metinden çıkarır — böylece zincir okunabilir ve denetlenebilir olur.
@@ -61,6 +62,16 @@ Sonuç bir yapay zekâ tahmini değildir. Graf üzerinde **Dijkstra algoritması
 yolun toplam güveni adımların çarpımı olduğundan, logaritma bu çarpımı toplama
 çevirir ve **en kısa yol = en güvenilir zincir** hâline gelir. Aynı soru her
 zaman aynı cevabı verir.
+
+**Skor bir olasılık değildir.** Kenar güvenleri elle seçilmiş sabitlerdir
+(metinden çıkarılmış ilişki 0.8, yalnızca aynı belgede geçme 0.5) ve veriyle
+kalibre edilmemiştir; 0.64, "%64 ihtimalle doğru" anlamına gelmez, yalnızca
+zincirleri birbiriyle kıyaslamaya yarar. Bu yüzden arayüz sayıyı değil
+**kanıtın türünü** öne çıkarır: her adım ya açık bir ilişki ya da yalnızca
+birlikte geçmedir (kesik okla gösterilir), zincir de buna göre **güçlü**,
+**kısmen dolaylı** ya da **zayıf** olarak işaretlenir. Örnek arşivde bunun
+neden önemli olduğu görülüyor: tek adımlık zayıf bir zincir (0.50) ile üç
+adımlık güçlü bir zincir (0.51) neredeyse aynı skoru alıyor.
 
 ---
 
@@ -242,7 +253,7 @@ Ollama (`qwen2.5:7b`, `bge-m3`) · rank-bm25 · pytest · Docker · GitHub Actio
 python -m pytest
 ```
 
-**171 test** — birim ve entegrasyon. Dış bağımlılıklar (LLM, dosya sistemi)
+**178 test** — birim ve entegrasyon. Dış bağımlılıklar (LLM, dosya sistemi)
 sahte nesnelerle değiştirilir; testler internet veya model gerektirmez.
 Her Pull Request'te **GitHub Actions** ile Python 3.10 ve 3.12'de otomatik çalışır.
 
@@ -271,6 +282,7 @@ açıkça ortaya koyar.
 |---|---|---|
 | **İlişki yönü** | Etiket zincirde okunduğu yönde çevrilmez — yukarıdaki örnekte raporu hazırlayan aslında Gamma'dır, ok ise Zeus'tan çıkar | Kenarı yönüne göre çevirme (`hazırladı` ⇄ `hazırlandı`) |
 | **Ölçek** | 5 belgelik bir gösterim; büyük arşivle denenmedi | pgvector indeksleme (HNSW) + asenkron yükleme kuyruğu |
+| **Güven skoru** | 0.8 / 0.5 sabitleri elle seçildi; skor kalibre bir olasılık değil (arayüz bu yüzden kanıt türünü gösterir) | Etiketli örneklerle kenar güvenlerini kalibre etmek |
 | **Retrieval hassasiyeti** | Hibrit arama var, yeniden sıralayıcı (reranker) yok | Cross-encoder reranker — çok adaylı aramada isabeti artırır |
 | **Aktarım güvenliği** | API anahtarı HTTP üzerinden düz metin gider | Ters proxy arkasında HTTPS |
 | **Yetkilendirme** | Tek anahtar; "kim ne yaptı" izlenmiyor | Kullanıcı bazlı giriş + rol tabanlı yetki (KVKK denetimi için değerli) |
@@ -291,7 +303,7 @@ Tümü (sağlık ucu hariç) `X-API-Key` başlığı ister. Etkileşimli belge:
 | `POST /documents` | `ornek_belgeler/` içindeki bir örnek belgeyi yükler |
 | `GET /documents` · `DELETE /documents[/{id}]` | Belgeleri listeler / siler |
 | `POST /ask` | Soru sorar; cevap + kaynak parçalar |
-| `GET /connection?source=&target=` | İki varlık arasındaki en güvenilir zincir |
+| `GET /connection?source=&target=` | İki varlık arasındaki en güvenilir zincir; her adımın kanıt türü (`evidence`) ve zincirin gücü (`strength`) |
 | `GET /entities` · `GET /stats` · `GET /audit` | Varlıklar, özet sayılar, KVKK kaydı |
 
 ---
