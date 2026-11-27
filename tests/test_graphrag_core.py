@@ -426,3 +426,50 @@ def test_find_connection_ayni_varligi_reddeder():
     sonuc = core.find_connection_detailed("Acme Holding", "ACME HOLDİNG A.Ş.")
     assert sonuc["found"] is False
     assert "aynı" in sonuc["message"]
+
+
+# ------------------------------------------- kanıt türü (skor olasılık değil)
+
+def test_tipli_iliskiyle_kurulan_zincir_guclu_sayilir():
+    core, loader, _llm, _vec, _graph = _core_kur()
+    core._relations.iliskiler = [
+        Relation(source="Acme Holding", relation="anlaştı", target="Beta Firması")
+    ]
+    loader.texts["a"] = "Acme Holding, Beta Firması ile anlaştı."
+    core.ingest("a")
+
+    sonuc = core.find_connection_detailed("Acme Holding", "Beta Firması")
+
+    assert sonuc["evidence"] == ["relation"]
+    assert sonuc["strength"] == "strong"
+
+
+def test_yalnizca_birlikte_gecme_zayif_sayilir():
+    core, loader, _llm, _vec, _graph = _core_kur()
+    core._relations.iliskiler = []
+    loader.texts["a"] = "Acme Holding ve Beta Firması aynı belgede geçiyor."
+    core.ingest("a")
+
+    sonuc = core.find_connection_detailed("Acme Holding", "Beta Firması")
+
+    assert sonuc["evidence"] == ["co_occurrence"]
+    assert sonuc["strength"] == "weak"
+
+
+def test_iliski_ve_birlikte_gecme_karisinca_karma_sayilir():
+    # Acme --anlaştı--> Proje Zeus (tipli) · Proje Zeus — Gamma (yalnızca birlikte)
+    core, loader, _llm, _vec, _graph = _core_kur()
+    core._relations.iliskiler = [
+        Relation(source="Acme Holding", relation="anlaştı", target="Proje Zeus")
+    ]
+    loader.texts["a"] = "Acme Holding, Proje Zeus için anlaştı."
+    core.ingest("a")
+    core._relations.iliskiler = []
+    loader.texts["b"] = "Proje Zeus kapsamında Gamma Danışmanlık çalıştı."
+    core.ingest("b")
+
+    sonuc = core.find_connection_detailed("Acme Holding", "Gamma Danışmanlık")
+
+    assert sonuc["evidence"] == ["relation", "co_occurrence"]
+    assert sonuc["strength"] == "mixed"
+    assert sonuc["confidence"] == round(0.8 * 0.5, 4)

@@ -275,10 +275,17 @@ class GraphRAGCore:
 
         "Bağlantı yok" ile "böyle bir varlık yok" farklı durumlardır; kullanıcıya
         hangisi olduğu söylenir (yazım hatasını fark edebilsin diye).
+
+        KANIT TÜRÜ: `confidence` elle seçilmiş sabitlerin (0.8 / 0.5) çarpımıdır,
+        kalibre edilmiş bir olasılık DEĞİLDİR; zincirleri kıyaslamaya yarar.
+        Kullanıcının asıl bilmesi gereken, her adımın neye dayandığıdır:
+          - `evidence`: her adım için "relation" (metinden çıkarılmış tipli
+            ilişki) ya da "co_occurrence" (yalnızca aynı belgede geçme)
+          - `strength`: "strong" (hepsi ilişki) · "mixed" · "weak" (hiçbiri)
         """
         def bulunamadi(mesaj: str) -> dict:
-            return {"found": False, "nodes": [], "relations": [],
-                    "confidence": 0.0, "message": mesaj}
+            return {"found": False, "nodes": [], "relations": [], "evidence": [],
+                    "strength": "", "confidence": 0.0, "message": mesaj}
 
         kaynak, hedef = canonical_entity_key(source_id), canonical_entity_key(target_id)
         for ad, anahtar in ((source_id, kaynak), (target_id, hedef)):
@@ -294,10 +301,19 @@ class GraphRAGCore:
         except PathNotFoundError:
             return bulunamadi("Bu iki varlık arasında bilinen bir bağlantı bulunamadı.")
 
+        # Etiketi olan kenar metinden çıkarılmış ilişkidir; boş etiket, yalnızca
+        # aynı belgede birlikte geçmeden doğan zayıf kenardır (bkz. ingest).
+        kanit = ["relation" if r else "co_occurrence" for r in path.relations]
+        tipli = kanit.count("relation")
+        guc = ("strong" if tipli == len(kanit)
+               else "weak" if tipli == 0 else "mixed")
+
         return {
             "found": True,
             "nodes": [self._graph.get_node(n).label for n in path.nodes],
             "relations": list(path.relations),
+            "evidence": kanit,
+            "strength": guc,
             "confidence": round(path.probability, 4),
             "message": "",
         }

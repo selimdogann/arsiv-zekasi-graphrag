@@ -304,9 +304,21 @@
       .node { white-space: normal; max-width: 100%; text-align: left; }
     }
 
-    .conf { display: flex; flex-wrap: wrap; justify-content: center; align-items: baseline; gap: 6px 14px; margin-top: 14px; font-size: .88rem; color: var(--muted); text-align: center; }
-    .conf b { color: var(--ink); font-size: 1.05rem; font-variant-numeric: tabular-nums; }
-    .conf small { flex-basis: 100%; color: var(--faint); font-size: .8rem; }
+    /* Yalnızca aynı belgede geçmeye dayanan adım: soluk etiket + kesik ok */
+    .edge.weak .rel { color: var(--muted); }
+    .edge.weak svg path:first-child { stroke-dasharray: 3 3; }
+
+    /* Sonuç kararı: sayıyı değil KANITI öne çıkarır (skor olasılık değildir) */
+    .verdict { display: flex; gap: 10px; margin-top: 14px; padding: 12px 14px; border-radius: var(--r); border: 1px solid; }
+    .verdict svg { width: 18px; height: 18px; flex: 0 0 auto; margin-top: 2px; }
+    .verdict b { display: block; font-size: .95rem; }
+    .verdict p { margin: 2px 0 0; font-size: .88rem; color: var(--muted); }
+    .verdict .score { margin-top: 6px; font-size: .8rem; color: var(--faint); }
+    .verdict .score span { font-variant-numeric: tabular-nums; font-weight: 600; color: var(--muted); }
+    .verdict.strong { background: var(--ok-soft); border-color: color-mix(in srgb, var(--ok) 25%, transparent); }
+    .verdict.strong svg, .verdict.strong b { color: var(--ok); }
+    .verdict.mixed, .verdict.weak { background: var(--amber-soft); border-color: color-mix(in srgb, var(--amber) 25%, transparent); }
+    .verdict.mixed svg, .verdict.mixed b, .verdict.weak svg, .verdict.weak b { color: var(--amber); }
 
     /* ===== Varlık listesi ===== */
     .filter { margin-bottom: 10px; }
@@ -1081,6 +1093,8 @@
     function renderConnection(out, veri) {
       if (!veri.found) { notice(out, "info", veri.message); return; }
       const nodes = veri.nodes, rels = veri.relations || [];
+      // Kanıt türü sunucudan gelir; eski sunucu için etiketten türetilir
+      const kanit = veri.evidence || rels.map(r => r ? "relation" : "co_occurrence");
 
       const wrap = el("div", "chain-wrap");
       const chain = el("ol", "chain");
@@ -1091,22 +1105,49 @@
         chain.appendChild(node);
         if (i < nodes.length - 1) {
           // Ok yalnızca iki düğüm arasına konur; etiket metinden çıkarılan ilişkidir
-          const edge = el("li", "edge");
-          edge.setAttribute("aria-label", rels[i] ? "ilişki: " + rels[i] : "aynı belgede geçiyor");
+          const zayif = kanit[i] !== "relation";
+          const edge = el("li", "edge" + (zayif ? " weak" : ""));
+          edge.setAttribute("aria-label", zayif ? "yalnızca aynı belgede geçiyor" : "ilişki: " + rels[i]);
           edge.style.animationDelay = (i * 0.12 + 0.06) + "s";
-          if (rels[i]) edge.appendChild(el("span", "rel", rels[i]));
+          edge.appendChild(el("span", "rel", zayif ? "aynı belgede" : rels[i]));
           edge.insertAdjacentHTML("beforeend", ICON.arrow);
           chain.appendChild(edge);
         }
       });
       wrap.appendChild(chain);
 
-      const conf = el("p", "conf");
-      conf.append(document.createTextNode("Birleşik güven "),
-                  el("b", null, Number(veri.confidence).toFixed(2)),
-                  document.createTextNode(" · " + (nodes.length - 1) + " adım"),
-                  el("small", null, "Her adımın güveni çarpılır; zincir uzadıkça skorun düşmesi normaldir."));
-      out.replaceChildren(wrap, conf);
+      out.replaceChildren(wrap, kararKutusu(veri, kanit));
+    }
+
+    /* Zincirin neye dayandığını düz Türkçeyle söyler. Skor yalnızca ikincil
+       bilgi: elle seçilmiş ağırlıkların çarpımıdır, kalibre bir olasılık değil. */
+    function kararKutusu(veri, kanit) {
+      const n = kanit.length, t = kanit.filter(k => k === "relation").length, c = n - t;
+      const guc = veri.strength || (t === n ? "strong" : t === 0 ? "weak" : "mixed");
+      const METIN = {
+        strong: ["Güçlü bağlantı", n === 1
+          ? "Bu adım belgelerde açıkça yazan bir ilişkiye dayanıyor."
+          : (n === 2 ? "İki adımın ikisi de" : n + " adımın hepsi") +
+            " belgelerde açıkça yazan bir ilişkiye dayanıyor."],
+        mixed: ["Kısmen dolaylı bağlantı",
+          (n === 2 ? "İki adımdan biri açık bir ilişkiye, diğeri"
+                   : n + " adımdan " + t + " tanesi açık bir ilişkiye, " + c + " tanesi") +
+          " yalnızca aynı belgede geçmeye dayanıyor. Kesik oklu adımı kaynak belgeden doğrulayın."],
+        weak: ["Zayıf bağlantı", n === 1
+          ? "Bu adım açık bir ilişkiye değil, yalnızca aynı belgede geçmeye dayanıyor."
+          : "Adımların hiçbiri açık bir ilişki değil; varlıklar yalnızca aynı belgelerde geçiyor."],
+      }[guc];
+
+      const kutu = el("div", "verdict " + guc);
+      kutu.innerHTML = guc === "strong" ? ICON.check : ICON.alert;
+      const govde = el("div");
+      const skor = el("p", "score");
+      skor.append(document.createTextNode("Sıralama skoru "),
+                  el("span", null, Number(veri.confidence).toFixed(2)),
+                  document.createTextNode(" · olasılık değildir, zincirleri kıyaslamak içindir."));
+      govde.append(el("b", null, METIN[0]), el("p", null, METIN[1]), skor);
+      kutu.appendChild(govde);
+      return kutu;
     }
 
     /* ================================================================
