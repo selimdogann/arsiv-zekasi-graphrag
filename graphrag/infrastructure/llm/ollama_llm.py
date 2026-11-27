@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import requests
 
+from graphrag.domain.exceptions import LanguageModelError
 from graphrag.domain.interfaces import ILanguageModel
 
 _BASE_URL = "http://localhost:11434"
@@ -44,6 +45,22 @@ _SYSTEM_PROMPT = (
 )
 
 
+def _json(response: requests.Response, model: str) -> dict:
+    """Ollama yanıtını çözer; hata yanıtını alan hatasına çevirir.
+
+    Ollama, model indirilmemişse 404 + {"error": "..."} döner. Eskiden kod
+    doğrudan data["embedding"] okuduğu için bu durum KeyError → anlamsız bir
+    HTTP 500 oluyordu. Artık kullanıcıya ne yapması gerektiği söylenir.
+    """
+    if response.status_code == 404:
+        raise LanguageModelError(
+            f"Yapay zekâ modeli yüklü değil: `ollama pull {model}` ile indirin.")
+    if not response.ok:
+        hata = response.json().get("error", "") if response.content else ""
+        raise LanguageModelError(f"Ollama isteği başarısız ({response.status_code}): {hata}")
+    return response.json()
+
+
 class OllamaLanguageModel(ILanguageModel):
     def complete(self, prompt: str) -> str:
         response = requests.post(
@@ -60,8 +77,7 @@ class OllamaLanguageModel(ILanguageModel):
             },
             timeout=60,
         )
-        data = response.json()
-        return data["message"]["content"]
+        return _json(response, CHAT_MODEL)["message"]["content"]
 
     def embed(self, text: str):
         response = requests.post(
@@ -69,6 +85,5 @@ class OllamaLanguageModel(ILanguageModel):
             json={"model": EMBED_MODEL, "prompt": text, "keep_alive": _KEEP_ALIVE},
             timeout=60,
         )
-        data = response.json()
-        return tuple(data["embedding"])
+        return tuple(_json(response, EMBED_MODEL)["embedding"])
 

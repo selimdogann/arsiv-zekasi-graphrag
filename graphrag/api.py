@@ -27,7 +27,7 @@ from pydantic import BaseModel
 from graphrag.application.graphrag_core import GraphRAGCore
 from graphrag.composition import build_core
 from graphrag.config import get_settings
-from graphrag.domain.exceptions import IngestionError
+from graphrag.domain.exceptions import IngestionError, LanguageModelError
 from graphrag.infrastructure.llm.ollama_llm import CHAT_MODEL, EMBED_MODEL
 
 OLLAMA_BASE = "http://localhost:11434"
@@ -54,6 +54,12 @@ app = FastAPI(title="Arşiv Zekâsı API", version="1.1.0")
 def _ingestion_hatasi(_: Request, exc: IngestionError):
     """Okunamayan / desteklenmeyen / boş belge → 400 + nedenini söyleyen mesaj."""
     return JSONResponse(status_code=400, content={"detail": str(exc)})
+
+
+@app.exception_handler(LanguageModelError)
+def _llm_hatasi(_: Request, exc: LanguageModelError):
+    """Ollama çalışıyor ama işi yapamadı (ör. model indirilmemiş) → 503."""
+    return JSONResponse(status_code=503, content={"detail": str(exc)})
 
 
 @app.exception_handler(requests.RequestException)

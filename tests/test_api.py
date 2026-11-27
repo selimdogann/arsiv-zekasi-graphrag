@@ -238,3 +238,14 @@ def test_ollama_kapaliysa_503_ve_aciklama_doner(cekirdek):
     r = client.post("/ask", json={"question": "merhaba"})
     assert r.status_code == 503
     assert "Ollama" in r.json()["detail"]
+
+
+def test_model_hatasi_503_ve_aciklama_doner(cekirdek):
+    from graphrag.domain.exceptions import LanguageModelError
+
+    def patla(question):
+        raise LanguageModelError("Yapay zekâ modeli yüklü değil: `ollama pull qwen2.5:7b` ile indirin.")
+    cekirdek.answer_with_sources = patla
+    r = client.post("/ask", json={"question": "merhaba"})
+    assert r.status_code == 503
+    assert "ollama pull" in r.json()["detail"]
